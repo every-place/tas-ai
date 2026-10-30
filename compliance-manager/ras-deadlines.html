@@ -1,0 +1,345 @@
+<title>RAS Compliance Calendar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column in the same family as the TAS Findings Engine report; wide tables scroll inside their own boxes. */
+:root{
+  --bg:#f6f8fb; --surface:#ffffff; --fg:#17202e; --muted:#566275; --line:#d8dee8;
+  --accent:#1f4e9a; --accent-soft:#e6eefb; --warn:#8a5a00; --warn-soft:#fff4dc;
+  --hard:#a3261b; --hard-soft:#fbe9e7; --ok:#1d6b3a; --ok-soft:#e5f4ea;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10151d; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545;
+  --accent:#8db4f5; --accent-soft:#1c2a42; --warn:#f0c46a; --warn-soft:#2e2615;
+  --hard:#f2998f; --hard-soft:#3a1d1a; --ok:#8fd6a6; --ok-soft:#173022; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151d; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545;
+  --accent:#8db4f5; --accent-soft:#1c2a42; --warn:#f0c46a; --warn-soft:#2e2615;
+  --hard:#f2998f; --hard-soft:#3a1d1a; --ok:#8fd6a6; --ok-soft:#173022; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+header{display:flex;flex-direction:column;gap:8px;border-bottom:3px solid var(--accent);padding-bottom:20px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-size:clamp(34px,6vw,48px);line-height:1.05;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:28px;line-height:1.15;margin:0 0 12px;text-wrap:balance}
+h3{font-size:16px;margin:18px 0 6px}
+p{margin:0 0 12px;max-width:72ch} ul,ol{margin:0 0 12px;padding-left:22px;max-width:72ch} li{margin-bottom:6px}
+a{color:var(--accent)}
+.lede{font-size:18px;color:var(--muted);max-width:66ch;margin:0}
+.sec{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:3px;white-space:nowrap}
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.summary ol{margin:0}
+.note{background:var(--warn-soft);border-left:4px solid var(--warn);padding:12px 16px;border-radius:0 4px 4px 0;max-width:80ch}
+.note p:last-child{margin:0}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 11px;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td.id{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+td.off{font-family:var(--mono);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.phase td{background:var(--accent-soft);color:var(--accent);font-family:var(--display);font-size:17px;font-weight:700;padding:6px 11px}
+#rules{min-width:900px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:10px;white-space:nowrap}
+.p-hard{background:var(--hard-soft);color:var(--hard)}
+.p-soft{background:var(--warn-soft);color:var(--warn)}
+.p-gate{background:var(--accent-soft);color:var(--accent)}
+.p-none{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin:0 0 12px}
+.legend span{display:flex;gap:6px;align-items:center}
+.who{font-weight:600}
+.doc{color:var(--muted);font-size:13px}
+/* calculator */
+.calc{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.inputs label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.inputs input,.inputs select{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0}
+.inputs input:focus-visible,.inputs select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.example{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+#tasks{min-width:640px}
+#tasks td.due{font-family:var(--mono);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#tasks tr.conflict td{background:var(--hard-soft)}
+/* letter */
+.letter{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:28px 30px;font-size:15px;max-width:720px;box-shadow:0 1px 0 var(--line)}
+.letter p{max-width:none}
+.f{background:var(--accent-soft);color:var(--accent);font-family:var(--mono);font-size:.82em;padding:0 4px;border-radius:3px}
+.para{border-left:3px solid var(--line);padding-left:12px;margin:0 0 12px}
+.para .tag{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.matrix{min-width:620px}
+.matrix td.c{text-align:center;font-family:var(--mono)}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.card b{font-family:var(--display);font-size:19px;display:block;margin-bottom:4px}
+.card code{font-family:var(--mono);font-size:12.5px}
+.card ul{margin:0;padding-left:18px;font-size:14px}
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">TAS AI suite · RAS Compliance Manager · rules research, Oct 2026</div>
+  <h1>RAS Compliance Calendar</h1>
+  <p class="lede">Every deadline in the Texas Architectural Barriers Act program that a Registered Accessibility Specialist or owner has to track, written as one table of rules: the event that starts the clock, the offset, who acts, and the document that comes out. Below it is a working sketch of how recorded dates turn into calendar tasks and pre-filled letters.</p>
+</header>
+
+<section class="summary">
+  <h2>What the rules come down to</h2>
+  <ol>
+    <li><b>Five dates drive almost everything:</b> plans issued, construction complete, inspection date, inspection report date, and the date the owner's response is received. Record those and the system can schedule the rest.</li>
+    <li><b>Most clocks are 30 calendar days.</b> Only one rule counts business days: design professionals submit plans to a RAS within 20 days of issue, not counting Saturdays, Sundays or legal holidays (<span class="sec">68.50(a)</span>, <span class="sec">Gov't Code 469.102</span>).</li>
+    <li><b>The 270-day correction window starts from the inspection report date</b> in the rule (<span class="sec">68.52(d)(2)</span>), but the prescribed letter paragraph says "270 calendar days from the date of this letter" (Bulletin 2023-05). Dating the letter and report the same day removes the conflict.</li>
+    <li><b>Letters are assembled from nine prescribed paragraphs</b> (results, owner action, disclaimer) published in RAS Bulletin 2023-05 under <span class="sec">68.53(b)(6)-(8)</span>. Five letter types cover every case, so letter generation is a lookup, not free writing.</li>
+    <li><b>Some dates in the rules disagree or are vague.</b> Seven are listed under "Open questions in the rules", each with a proposed default. The calendar should show both dates where the rules conflict and treat the earlier one as the deadline.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>The rules table</h2>
+  <p>One row per obligation. "Hard" means a deadline the rule states. "Soft" means a timing the department asks for in letter text or "as soon as possible". "Gate" means something that must happen before another step can start. Citations are to 16 TAC Chapter 68 (amended effective Sept. 1, 2023) unless marked as the Government Code or a TDLR bulletin.</p>
+  <div class="legend">
+    <span><i class="pill p-hard">Hard</i> stated deadline</span>
+    <span><i class="pill p-soft">Soft</i> requested timing</span>
+    <span><i class="pill p-gate">Gate</i> must happen first</span>
+    <span><i class="pill p-none">No clock</i> obligation without a date</span>
+  </div>
+  <div class="tbl"><table id="rules">
+    <thead><tr><th>ID</th><th>Trigger event</th><th>Offset</th><th>Kind</th><th>Who acts</th><th>Action and document produced</th><th>Source</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Open questions in the rules</h2>
+  <p>These are places where the rule text is silent, ambiguous or in conflict. Each ships with the proposed default and can be changed later as a setting, so none of them blocks building or field testing.</p>
+  <div class="tbl"><table style="min-width:700px">
+    <thead><tr><th>#</th><th>Issue</th><th>What the sources say</th><th>Proposed default</th></tr></thead>
+    <tbody>
+      <tr><td class="id">G1</td><td>270-day start date</td><td><span class="sec">68.52(d)(2)</span> and <span class="sec">68.40(d)</span>: 270th day after the inspection report date. Bulletin 2023-05 ¶2: 270 calendar days from the date of the letter. ¶4 (corrective modification letter): from the original inspection report date.</td><td>Calendar the earlier of the two. Default the letter date to the report date and warn when they differ.</td></tr>
+      <tr><td class="id">G2</td><td>When to request inspection</td><td><span class="sec">68.41(a)</span> and <span class="sec">469.105</span>: inspection no later than one year after completion. Bulletin ¶6: owner must request inspection within 30 days after completion.</td><td>Two tasks: a soft "request inspection" at +30 days and a hard "inspection complete" at +1 year.</td></tr>
+      <tr><td class="id">G3</td><td>Report and letter timing stack</td><td>Report within 30 days of inspection, then delivered within 30 days of report date (<span class="sec">68.52(c)</span>). Transmittal letter within 30 days after the inspection is completed (<span class="sec">68.53(a)</span>).</td><td>Since the letter carries the report, treat inspection date + 30 as the hard date for the whole package.</td></tr>
+      <tr><td class="id">G4</td><td>Who uploads the owner response, and from what date</td><td><span class="sec">68.52(e)</span>: the response is uploaded in TABS within 30 calendar days "of receipt", without naming who uploads it.</td><td>Assign to the RAS, counted from the date the RAS receives the EAB-229N form.</td></tr>
+      <tr><td class="id">G5</td><td>Which "legal holidays" skip the 20-day plan clock</td><td><span class="sec">469.102</span> excludes "legal holidays" without a list. Texas Gov't Code 662 has national holidays and extra state holidays.</td><td>Keep a holiday table the RAS can edit. Ship with national holidays on and Texas state holidays as a setting.</td></tr>
+      <tr><td class="id">G6</td><td>Corrective modification review and extensions</td><td>No deadline for the RAS to review the owner's verification of corrections. EAB-229N lets the owner request an extension or a variance, but the rules don't say who sets the new date.</td><td>Use 30 days as an internal target for the review letter. Store an approved extension as an override date with its source document.</td></tr>
+      <tr><td class="id">G7</td><td>"Completion of construction"</td><td>The owner reports an estimated date, may change it (<span class="sec">68.40(c)</span>), and the RAS uploads changes within 30 days (<span class="sec">68.75(d)</span>). Several clocks hang on it.</td><td>Track estimated and actual dates separately. Clocks run from the actual date once it is recorded, and from the estimate until then.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>How recorded dates become tasks</h2>
+  <p>The engine never stores a deadline someone typed. It stores <b>events</b> (a date plus a source document), and each rule above says "when this event happens, create this task, due this many days later." Finishing a task records a new event, which starts the next rules. Change a date and every open task downstream moves with it, with the old date kept in the history.</p>
+<pre class="mermaid">
+flowchart LR
+  A[Plans issued] -->|"+20 business days"| B[Plans submitted to RAS]
+  B --> C[Plan review report]
+  C -->|"+30 days"| D[Report and letter to owner]
+  E[Construction complete] -->|"+30 days, soft"| F[Owner requests inspection]
+  E -->|"+1 year, hard"| G[Inspection]
+  F --> G
+  G -->|"+30 days"| H[Inspection report and letter]
+  H -->|"none found"| N[TDLR approval and Notice of Substantial Compliance]
+  H -->|"violations"| I[Owner response EAB-229N, +30 days]
+  H -->|"violations"| J[Corrections complete, +270 days]
+  I -->|"+30 days"| K[RAS uploads response to TABS]
+  J --> L[RAS reviews verification]
+  L -->|"all fixed"| N
+  L -->|"items remain"| J
+</pre>
+  <div class="cols">
+    <div class="card"><b>Event</b>
+      <ul><li><code>project_id</code>, <code>event_type</code> (plans_issued, completion_est, completion_actual, inspection, report_issued, letter_sent, response_received, corrections_verified)</li><li><code>date</code>, <code>source_doc</code>, <code>entered_by</code></li><li>Edits create a new row, so there is an audit trail</li></ul></div>
+    <div class="card"><b>Rule</b>
+      <ul><li><code>rule_id</code>, <code>trigger_event</code>, <code>condition</code> (e.g. violations &gt; 0)</li><li><code>offset</code>, <code>unit</code> (calendar, business, year), <code>kind</code> (hard, soft, gate)</li><li><code>assignee_role</code>, <code>task_title</code>, <code>template_id</code>, <code>citation</code>, <code>reminders</code> (e.g. −14, −7, −1)</li></ul></div>
+    <div class="card"><b>Task</b>
+      <ul><li><code>project_id</code>, <code>rule_id</code>, <code>due_date</code>, <code>assignee</code></li><li><code>status</code> (open, done, overridden), <code>completed_on</code></li><li><code>completes_event</code>: finishing the task records the next event, which triggers the next rules</li></ul></div>
+  </div>
+  <p style="margin-top:14px">Rules live in data, not code. When TDLR amends Chapter 68 (it already promised to fix the 68.40(d) cross-reference and add the letter paragraphs to the rule), the firm edits rows instead of waiting on a developer.</p>
+</section>
+
+<section>
+  <h2>Try it on one project</h2>
+  <div class="calc">
+    <div class="example">Example dates, not a real project</div>
+    <div class="inputs">
+      <label for="d-plans">Plans issued<input type="date" id="d-plans" value="2026-11-20"></label>
+      <label for="d-done">Construction complete<input type="date" id="d-done" value="2027-08-13"></label>
+      <label for="d-insp">Inspection date<input type="date" id="d-insp" value="2027-09-08"></label>
+      <label for="d-rpt">Report date<input type="date" id="d-rpt" value="2027-09-20"></label>
+      <label for="d-ltr">Letter date<input type="date" id="d-ltr" value="2027-09-20"></label>
+      <label for="d-viol">Inspection result<select id="d-viol"><option value="1" selected>Violations found</option><option value="0">No violations</option></select></label>
+      <label for="d-hol">Holidays for the 20-day clock<select id="d-hol"><option value="nat" selected>National holidays</option><option value="tx">National + Texas state</option></select></label>
+    </div>
+    <div class="tbl"><table id="tasks">
+      <thead><tr><th>Due</th><th>Task</th><th>Who</th><th>Rule</th><th>Kind</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="doc" id="calc-note" style="margin:0"></p>
+  </div>
+</section>
+
+<section>
+  <h2>Letters from paragraphs</h2>
+  <p><span class="sec">68.53(b)</span> lists the fields every transmittal letter needs (report date, RAS name and certification number, owner name and address, TABS project number, project name, facility name and address), then up to three paragraph blocks. RAS Bulletin 2023-05 supplies the required wording for those blocks. Each letter type is a fixed recipe:</p>
+  <div class="tbl"><table class="matrix">
+    <thead><tr><th>Letter type</th><th>Results ¶ (b)(6)</th><th>Owner action ¶ (b)(7)</th><th>Disclaimer ¶ (b)(8)</th><th>Starts clocks</th></tr></thead>
+    <tbody>
+      <tr><td>Plan review / plan revision</td><td class="c">¶1</td><td class="c">¶6</td><td class="c">¶9</td><td>Request inspection within 30 days of completion</td></tr>
+      <tr><td>Inspection, violations</td><td class="c">¶2</td><td class="c">none</td><td class="c">¶9</td><td>EAB-229N in 30 days; corrections in 270</td></tr>
+      <tr><td>Inspection, no violations</td><td class="c">¶3</td><td class="c">¶7</td><td class="c">¶9</td><td>Owner may request Notice of Substantial Compliance</td></tr>
+      <tr><td>Corrective modification, violations remain</td><td class="c">¶4</td><td class="c">none</td><td class="c">¶9</td><td>270 days still counted from original report</td></tr>
+      <tr><td>Corrective modification, all fixed</td><td class="c">¶5</td><td class="c">¶8</td><td class="c">¶9</td><td>Owner may request Notice of Substantial Compliance</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Example: inspection letter with violations, filled from the dates above</h3>
+  <div class="letter" id="letter"></div>
+  <div class="note" style="margin-top:14px"><p>Paragraph text here is a summary. The app would store the bulletin's exact wording once, with fields such as <span class="f">{report_date}</span> marked, so every letter uses the prescribed language. The findings list attached to the report comes from the Report Writer module, using the same project and TABS number.</p></div>
+</section>
+
+<section>
+  <h2>How it connects to the other modules</h2>
+  <p>The Compliance Manager owns projects, events, tasks and letters. Plan Review and Field Inspection record the events (plan review finished, inspection date, findings count). Report Writer produces the report, and its issue date becomes the <code>report_issued</code> event that starts the 30-day and 270-day clocks. Owner responses and correction photos come back in as events too, so the corrective modification letter can list exactly which findings are still open.</p>
+</section>
+
+<footer>
+  <p><b>Sources.</b>
+  16 TAC Ch. 68 via Cornell LII: <a href="https://www.law.cornell.edu/regulations/texas/title-16/part-4/chapter-68">chapter index</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-21">68.21</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-22">68.22</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-31">68.31</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-40">68.40</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-41">68.41</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-42">68.42</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-50">68.50</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-51">68.51</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-52">68.52</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-53">68.53</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-60">68.60</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-73">68.73</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-74">68.74</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-75">68.75</a>,
+  <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-80">68.80</a>.
+  Texas Gov't Code: <a href="https://texas.public.law/statutes/tex._gov't_code_section_469.102">469.102</a>,
+  <a href="https://texas.public.law/statutes/tex._gov't_code_section_469.104">469.104</a>,
+  <a href="https://texas.public.law/statutes/tex._gov't_code_section_469.105">469.105</a>.
+  TDLR: <a href="https://license.state.tx.us/ab/forms/RAS-Bulletin-2023-05-prescribed-rule-paragraphs.pdf">RAS Bulletin 2023-05</a>,
+  <a href="https://license.state.tx.us/ab/forms/RAS-Bulletin-2023-06-owner-response-need.pdf">RAS Bulletin 2023-06</a>,
+  <a href="https://www.tdlr.texas.gov/news/2023/09/13/clarification-regarding-adopted-rules">clarification of adopted rules (Sept. 13, 2023)</a>,
+  <a href="https://www.tdlr.texas.gov/news/2023/09/01/elimination-of-architectural-barriers-rules-updates">rules update (Sept. 1, 2023)</a>.</p>
+  <p>Rule text was read through secondary copies of the Texas Administrative Code. Check against the official TDLR rules page before relying on any row. This is planning research, not legal advice.</p>
+</footer>
+</div>
+
+<script>
+const RULES = [
+ {ph:"Registration and plan submission"},
+ {id:"R01",trig:"Project with estimated construction cost of $50,000 or more, subject to the Act",off:"Before permit application",k:"gate",who:"Owner",act:"Register project with TDLR",doc:"Project registration form + $175 filing fee; local permit official must confirm registration",cite:"68.21(a); 68.80(a)(1); Gov't 469.102"},
+ {id:"R02",trig:"Project registered after construction is complete",off:"—",k:"none",who:"Owner",act:"Pay late filing fee instead of the regular fee",doc:"$300 late project filing fee",cite:"68.80(a)(2), (c)"},
+ {id:"R03",trig:"Design professional issues plans (each issue date runs its own clock)",off:"+20 business days",k:"hard",who:"Design professional",act:"Submit plans and specifications to a RAS",doc:"Construction documents + department form",cite:"68.50(a); Gov't 469.102",anchor:"plans",n:20,unit:"bus"},
+ {id:"R04",trig:"No design professional has overall responsibility",off:"Before permit or construction start",k:"gate",who:"Owner",act:"Submit construction documents to a RAS",doc:"Construction documents",cite:"68.40(e); 68.50(b)"},
+ {id:"R05",trig:"Project under $50,000 or not subject to the Act (optional registration)",off:"Before any service",k:"gate",who:"RAS",act:"Get the owner's written authorization",doc:"Owner authorization letter",cite:"68.21(c); 68.75(b)(1)"},
+ {id:"R06",trig:"New or renewed state agency lease of $12,000 or more a year",off:"Before any service",k:"gate",who:"State agency; RAS",act:"Agency registers the lease. RAS gets TDLR's written authorization before work. No RAS inspection for a renewal or extension of an existing lease",doc:"Lease registration + fee; TDLR authorization",cite:"68.21(b); 68.22; 68.75(b)(2)"},
+ {id:"R07",trig:"Owner appoints someone to act for them",off:"—",k:"none",who:"Owner",act:"File a separate designated agent form for each project",doc:"Designated agent form, signed by owner or owner's employee",cite:"68.42"},
+ {ph:"Plan review"},
+ {id:"R08",trig:"RAS receives construction documents",off:"Gate",k:"gate",who:"RAS",act:"Have the documents in hand before reviewing",doc:"—",cite:"68.51(a)"},
+ {id:"R09",trig:"Plan review report date",off:"+30 days",k:"hard",who:"RAS",act:"Deliver Plan Review Report to owner or agent and to the submitting design professional; upload to TABS",doc:"Plan Review Report (title, RAS name and cert no., date, TABS no., facility, project and address, each deficiency with TAS section)",cite:"68.51(c), (d)"},
+ {id:"R10",trig:"Plan review completed",off:"+30 days",k:"hard",who:"RAS",act:"Send transmittal letter to owner; upload to TABS",doc:"Plan review letter (¶1 + ¶6 + ¶9)",cite:"68.53(a); Bulletin 2023-05"},
+ {id:"R11",trig:"Revised or supplemental documents received",off:"On receipt",k:"none",who:"RAS",act:"Confirm completion date with owner in writing. Before completion: do a plan revision review (R09 and R10 apply). After completion: upload to TABS only",doc:"Written completion-date verification; Plan Revision Review Report",cite:"68.51(b)"},
+ {ph:"During construction"},
+ {id:"R12",trig:"Estimated completion date changes",off:"As soon as possible",k:"soft",who:"Owner",act:"Tell the RAS in writing",doc:"Written notice",cite:"68.40(c); Bulletin ¶6"},
+ {id:"R13",trig:"RAS receives a new completion date from owner",off:"+30 days",k:"hard",who:"RAS",act:"Upload the change to TABS",doc:"TABS project update",cite:"68.75(d)"},
+ {id:"R14",trig:"Owner contact information or property ownership changes",off:"+30 days",k:"hard",who:"Owner",act:"Notify TDLR",doc:"Notice to department",cite:"68.40(b)"},
+ {ph:"Inspection"},
+ {id:"R15",trig:"Construction complete",off:"+30 days",k:"soft",who:"Owner",act:"Request inspection from the RAS in writing",doc:"Written inspection request",cite:"68.41(b); Bulletin ¶6",anchor:"done",n:30,unit:"cal"},
+ {id:"R16",trig:"Construction complete",off:"+1 year",k:"hard",who:"Owner",act:"Have the building inspected by a RAS",doc:"—",cite:"68.41(a); Gov't 469.105",anchor:"done",n:1,unit:"yr"},
+ {id:"R17",trig:"Before the inspection",off:"Gate",k:"gate",who:"RAS",act:"Have TABS access to the project and the owner's written request",doc:"—",cite:"68.52(a)"},
+ {id:"R18",trig:"Inspection day",off:"Same day",k:"gate",who:"Owner, agent or representative",act:"Be on site and sign the inspection form, or the inspection is not valid",doc:"TDLR inspection form, signed",cite:"68.41(c); 68.52(b)"},
+ {id:"R19",trig:"Inspection date",off:"+30 days",k:"hard",who:"RAS",act:"Complete the typewritten Inspection Report",doc:"Inspection Report (heading, RAS, report and inspection dates, TABS no., facility, project, each violation with TAS section and location)",cite:"68.52(c)",anchor:"insp",n:30,unit:"cal"},
+ {id:"R20",trig:"Inspection report date",off:"+30 days",k:"hard",who:"RAS",act:"Give the report to the owner; upload to TABS",doc:"Inspection Report",cite:"68.52(c)(1), (2)",anchor:"rpt",n:30,unit:"cal"},
+ {id:"R21",trig:"Inspection completed",off:"+30 days",k:"hard",who:"RAS",act:"Send transmittal letter to owner; upload to TABS",doc:"Inspection letter (¶2 or ¶3+¶7, plus ¶9)",cite:"68.53(a); Bulletin 2023-05",anchor:"insp",n:30,unit:"cal"},
+ {ph:"Corrections"},
+ {id:"R22",trig:"Inspection report date (violations found)",off:"+30 days",k:"hard",who:"Owner",act:"Send the response form to the RAS: corrections done, extension requested, or variance coming",doc:"Inspection Response Form EAB-229N",cite:"68.40(d); 68.52(d)(1); Bulletin 2023-06",anchor:"rpt",n:30,unit:"cal",viol:1},
+ {id:"R23",trig:"Inspection report date (violations found)",off:"+270 days",k:"hard",who:"Owner",act:"Finish all corrective modifications and verify them in writing",doc:"Written verification of corrections (photos, invoices)",cite:"68.40(d); 68.52(d)(2)",anchor:"rpt",n:270,unit:"cal",viol:1},
+ {id:"R24",trig:"Transmittal letter date (violations found)",off:"+270 days",k:"soft",who:"Owner",act:"Same deadline as R23, as worded in the prescribed letter paragraph",doc:"See G1",cite:"Bulletin 2023-05 ¶2",anchor:"ltr",n:270,unit:"cal",viol:1},
+ {id:"R25",trig:"RAS receives the owner's response",off:"+30 days",k:"hard",who:"RAS (assumed)",act:"Upload the response to TABS",doc:"EAB-229N in TABS",cite:"68.52(e)"},
+ {id:"R26",trig:"Owner submits verification of corrections",off:"Not stated",k:"none",who:"RAS",act:"Review and send corrective modification letter",doc:"CM letter (¶4, or ¶5+¶8, plus ¶9)",cite:"Bulletin 2023-05; 68.42(b)(6)"},
+ {id:"R27",trig:"Owner decides to seek a variance",off:"Not stated",k:"none",who:"Owner or agent",act:"File variance application per project; appeals go to TDLR, then the executive director",doc:"Variance form + photos, cost analysis, code refs + $175; appeal $200",cite:"68.31; 68.80(a)(5), (6)"},
+ {ph:"Close-out"},
+ {id:"R28",trig:"Satisfactory inspection, or corrections verified (new construction)",off:"On owner request",k:"none",who:"Owner; TDLR",act:"Owner asks in writing; TDLR issues the certificate",doc:"Notice of Substantial Compliance Request Form; Notice of Substantial Compliance",cite:"68.60; Bulletin ¶7, ¶8"},
+ {id:"R29",trig:"Project closed",off:"+1 year",k:"hard",who:"RAS",act:"Keep project files in TABS",doc:"Project file retention",cite:"68.75(c)"},
+ {ph:"RAS practice administration"},
+ {id:"R30",trig:"RAS receives fees collected for TDLR",off:"+30 days",k:"hard",who:"RAS",act:"Send the fees to TDLR",doc:"Fee remittance",cite:"68.75(a)"},
+ {id:"R31",trig:"RAS contact information changes",off:"+30 days",k:"hard",who:"RAS",act:"Notify TDLR in writing",doc:"Written notice",cite:"68.75(e)"},
+ {id:"R32",trig:"RAS certification expiration date",off:"By expiration",k:"hard",who:"RAS",act:"Renew: application, background check, 4 CE hours completed within the term",doc:"Renewal application + $250; late renewal fees under 16 TAC 60.83",cite:"68.73; 68.74(a), (d); 68.80(b)(2)"},
+ {id:"R33",trig:"CE course completed",off:"+3 years",k:"hard",who:"RAS",act:"Keep the certificate of completion",doc:"CE certificate",cite:"68.74(f)"}
+];
+const KIND = {hard:["p-hard","Hard"],soft:["p-soft","Soft"],gate:["p-gate","Gate"],none:["p-none","No clock"]};
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pill = k => `<i class="pill ${KIND[k][0]}">${KIND[k][1]}</i>`;
+const secs = c => c.split("; ").map(x=>`<span class="sec">${esc(x)}</span>`).join(" ");
+document.querySelector("#rules tbody").innerHTML = RULES.map(r => r.ph
+  ? `<tr class="phase"><td colspan="7">${esc(r.ph)}</td></tr>`
+  : `<tr><td class="id">${r.id}</td><td>${esc(r.trig)}</td><td class="off">${esc(r.off)}</td><td>${pill(r.k)}</td><td class="who">${esc(r.who)}</td><td>${esc(r.act)}<div class="doc">${esc(r.doc)}</div></td><td>${secs(r.cite)}</td></tr>`).join("");
+
+/* date helpers, all in UTC to avoid DST drift */
+const P = s => { const [y,m,d] = s.split("-").map(Number); return new Date(Date.UTC(y,m-1,d)); };
+const F = d => d.toISOString().slice(0,10);
+const add = (d,n) => new Date(d.getTime()+n*864e5);
+const nth = (y,m,wd,n) => { const d=new Date(Date.UTC(y,m,1)); const off=(wd-d.getUTCDay()+7)%7; return Date.UTC(y,m,1+off+7*(n-1)); };
+const last = (y,m,wd) => { const d=new Date(Date.UTC(y,m+1,0)); const off=(d.getUTCDay()-wd+7)%7; return Date.UTC(y,m+1,-off); };
+function holidays(y, tx){
+  const h = [Date.UTC(y,0,1),nth(y,0,1,3),nth(y,1,1,3),last(y,4,1),Date.UTC(y,6,4),nth(y,8,1,1),Date.UTC(y,10,11),nth(y,10,4,4),Date.UTC(y,11,25)];
+  if (tx) h.push(Date.UTC(y,0,19),Date.UTC(y,2,2),Date.UTC(y,3,21),Date.UTC(y,5,19),Date.UTC(y,7,27),nth(y,10,4,4)+864e5,Date.UTC(y,11,24),Date.UTC(y,11,26));
+  return new Set(h);
+}
+function addBiz(d,n,tx){
+  let c=0, x=d;
+  while(c<n){ x=add(x,1); const wd=x.getUTCDay(); if(wd===0||wd===6) continue; if(holidays(x.getUTCFullYear(),tx).has(x.getTime())) continue; c++; }
+  return x;
+}
+function due(r,dates,tx){
+  const a = dates[r.anchor]; if(!a) return null;
+  if (r.unit==="bus") return addBiz(a,r.n,tx);
+  if (r.unit==="yr") { const d=new Date(a); d.setUTCFullYear(d.getUTCFullYear()+r.n); return d; }
+  return add(a,r.n);
+}
+const fmt = d => d.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric",timeZone:"UTC"});
+function run(){
+  const v = id => document.getElementById(id).value;
+  const dates = {plans:v("d-plans"),done:v("d-done"),insp:v("d-insp"),rpt:v("d-rpt"),ltr:v("d-ltr")};
+  for (const k in dates) dates[k] = dates[k] ? P(dates[k]) : null;
+  const viol = v("d-viol")==="1", tx = v("d-hol")==="tx";
+  const rows = RULES.filter(r=>r.anchor && (!r.viol || viol)).map(r=>({r,d:due(r,dates,tx)})).filter(x=>x.d).sort((a,b)=>a.d-b.d);
+  const r23 = rows.find(x=>x.r.id==="R23"), r24 = rows.find(x=>x.r.id==="R24");
+  const clash = r23 && r24 && r23.d.getTime()!==r24.d.getTime();
+  const hardInsp = rows.find(x=>x.r.id==="R16");
+  const lateInsp = hardInsp && dates.insp && dates.insp > hardInsp.d;
+  document.querySelector("#tasks tbody").innerHTML = rows.map(({r,d}) =>
+    `<tr class="${(clash && (r.id==="R23"||r.id==="R24")) || (lateInsp && r.id==="R16") ? "conflict":""}"><td class="due">${F(d)}</td><td>${esc(r.act)}</td><td>${esc(r.who)}</td><td class="id">${r.id}</td><td>${pill(r.k)}</td></tr>`).join("");
+  const notes = [];
+  if (clash) notes.push(`The report and letter dates differ, so the 270-day deadline lands on two dates (${F(r23.d)} by rule, ${F(r24.d)} by letter wording). The calendar would hold the owner to the earlier one and flag it (gap G1).`);
+  if (lateInsp) notes.push(`The inspection date is more than a year after completion, which misses R16.`);
+  if (dates.rpt && dates.insp && dates.rpt > add(dates.insp,30)) notes.push(`The report date is more than 30 days after the inspection, which misses R19.`);
+  if (!notes.length) notes.push(`R03 counts business days, skipping weekends and ${tx ? "national and Texas state" : "national"} holidays. Every other clock counts calendar days. Try changing the letter date to see a conflict flagged.`);
+  document.getElementById("calc-note").textContent = notes.join(" ");
+  const resp = rows.find(x=>x.r.id==="R22");
+  const L = document.getElementById("letter");
+  const f = s => `<span class="f">${esc(s)}</span>`;
+  L.innerHTML = `
+   <p>${f(dates.ltr ? fmt(dates.ltr) : "{letter_date}")}</p>
+   <p>${f("{owner_name}")}<br>${f("{owner_address}")}</p>
+   <p>Re: TABS Project No. ${f("{tabs_project_no}")}<br>${f("{project_name}")}, ${f("{facility_name}")}<br>${f("{facility_address}")}<br>Inspection date: ${f(dates.insp ? fmt(dates.insp) : "{inspection_date}")} · Report date: ${f(dates.rpt ? fmt(dates.rpt) : "{report_date}")}</p>
+   ${viol ? `<div class="para"><span class="tag">Results ¶2 · Inspection with violations</span>The inspection is complete and the results are enclosed. Items that do not comply must be corrected and verified in writing within 270 calendar days of this letter${dates.ltr ? `, which is by ${f(fmt(add(dates.ltr,270)))}` : ""}. If that date cannot be met, contact this office as soon as possible.</div>
+   <div class="para"><span class="tag">Reminder from rule 68.52(d)(1), not a prescribed paragraph</span>Please return Inspection Response Form EAB-229N by ${f(resp ? fmt(resp.d) : "{response_due}")}.</div>`
+   : `<div class="para"><span class="tag">Results ¶3 · Inspection with no violations</span>The facility was inspected and found to be in substantial compliance with Texas Government Code, Chapter 469.</div>
+   <div class="para"><span class="tag">Owner action ¶7</span>The results are being sent to TDLR for final approval. For a new building, TDLR issues a Notice of Substantial Compliance after it receives the completed request form.</div>`}
+   <div class="para"><span class="tag">Disclaimer ¶9</span>This determination covers Texas Government Code, Chapter 469 only. It does not address the Americans with Disabilities Act or other federal, state or local requirements. ADA Hotline (800) 949-4232; U.S. Department of Justice (202) 514-0301.</div>
+   <p>${f("{ras_name}")}, RAS No. ${f("{ras_cert_no}")}</p>`;
+}
+document.querySelectorAll(".inputs input,.inputs select").forEach(el=>el.addEventListener("input",run));
+run();
+</script>

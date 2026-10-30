@@ -1,0 +1,524 @@
+<title>Guided Stall Inspection</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a phone-sized inspection app centred on the page, with a short explainer beside it on wide screens. */
+:root{
+  --bg:#eef2f7; --surface:#ffffff; --fg:#17202e; --muted:#5a667a; --line:#d5dce7;
+  --accent:#1f4e9a; --accent-soft:#e6eefb;
+  --pass:#1d7a4a; --pass-soft:#e3f4ea; --fail:#b3261e; --fail-soft:#fbe7e5; --check:#8a5a00; --check-soft:#fff2d6;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545; --accent:#8db4f5; --accent-soft:#1c2a42;
+  --pass:#6fd39b; --pass-soft:#16301f; --fail:#ff8a80; --fail-soft:#3a1a18; --check:#f0c46a; --check-soft:#2e2615; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545; --accent:#8db4f5; --accent-soft:#1c2a42;
+  --pass:#6fd39b; --pass-soft:#16301f; --fail:#ff8a80; --fail-soft:#3a1a18; --check:#f0c46a; --check-soft:#2e2615; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.page{max-width:1000px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:32px;align-items:start}
+@media (max-width:820px){.page{grid-template-columns:1fr}}
+.intro{display:flex;flex-direction:column;gap:12px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-size:clamp(30px,5vw,42px);line-height:1.05;margin:0;text-wrap:balance}
+.intro p{margin:0;max-width:60ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.app{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:0 10px 30px rgba(20,30,50,.12);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.bar{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.crumbs{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.03em}
+.crumbs b{color:var(--fg);font-weight:500}
+.steps{display:flex;gap:4px}
+.steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.steps i.on{background:var(--accent)}
+.body{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:520px}
+h2{font-family:var(--display);font-size:24px;margin:0;line-height:1.15}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.choices{display:flex;flex-direction:column;gap:8px}
+.choice{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer}
+.choice:hover{border-color:var(--accent)}
+.choice .sec,.sec{font-family:var(--mono);font-size:12px;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.choice small{display:block;color:var(--muted);font-size:13px}
+.nav{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--line)}
+button.btn{font:inherit;font-weight:600;border-radius:10px;padding:10px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);flex:1}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,.choice:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scanbox{border:1px dashed var(--accent);border-radius:12px;padding:14px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
+.scanbox ol{margin:0;padding-left:20px}
+.svgwrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
+svg text{font-family:var(--mono);font-size:10px}
+.cap{font-size:12px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--line);background:var(--surface)}
+.checks{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:9px 12px;border-bottom:1px solid var(--line);align-items:center}
+.row:last-child{border-bottom:0}
+.row .what{font-weight:600;font-size:14px}
+.row .req{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row .val{font-family:var(--mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pass{background:var(--pass-soft);color:var(--pass)} .fail{background:var(--fail-soft);color:var(--fail)} .check{background:var(--check-soft);color:var(--check)}
+.tape{grid-column:1/-1;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap}
+.tape input{width:80px;font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.tape button{font:inherit;font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.finding{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.finding .short{font-weight:600}
+.finding .long{font-size:13px;color:var(--muted);margin:0}
+.refs{display:flex;flex-wrap:wrap;gap:4px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px}
+.opt input{margin-top:3px}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt .v{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);padding:0 4px;border-radius:3px}
+.summary{display:flex;gap:6px;flex-wrap:wrap}
+.note{font-size:12px;color:var(--muted)}
+.na{background:var(--line);color:var(--muted)}
+.progress{display:flex;flex-direction:column;gap:4px}
+.progress .track{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.progress .fillbar{height:100%;background:var(--accent)}
+.mini{align-self:flex-start;font:inherit;font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.photos{display:flex;gap:8px;flex-wrap:wrap}
+.photo{width:230px;max-width:100%;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.photo svg text{font-size:7.5px}
+textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);min-height:64px}
+.found{font-size:13px;display:flex;flex-wrap:wrap;gap:4px}
+@media (prefers-reduced-motion:no-preference){.body{animation:fade .18s ease-out}}
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+</style>
+
+<div class="page">
+  <section class="intro">
+    <div class="eyebrow">Prototype · example data · simulated scan</div>
+    <h1>Guided inspection of a toilet stall</h1>
+    <p>This shows how the app could lead an inspector from the room to a finished Finding. The inspector picks the room, the element and its type, and the app lists what TAS requires. The inspector scans the stall, the measurements appear on the image, and the app flags each check.</p>
+    <p>Example: a renovated cafe, too small for a pre-visit. The inspector names locations on the spot, and the app suggests the next free code, such as TC01 for the first stall or TR02 for a second restroom. A custom code can be typed instead.</p>
+    <p>The scan builds the checklist. It finds the water closet, grab bars, dispenser and door, then lists every TAS check for that stall type. Findings can't be made until every check is measured, answered, or marked not applicable, so nothing gets forgotten.</p>
+    <p>A measurement too close to its limit for the scan to be sure is marked <span class="pill check">Check with tape</span>. When the inspector enters the tape or laser reading, the app takes a photo stamped with the location, the reading, the requirement and the TAS section. Failures become Findings. Each one offers Recommendation options from the library, a custom Recommendation with notes, or a choice to defer.</p>
+    <p>One Recommendation can settle others. Choose "replace with a wall-hung water closet" for the low seat, and the depth Finding is marked covered, because a wall-hung model needs only 56". The dispenser Finding is flagged for a re-check after installation. The report then gets one combined Recommendation that lists what the new fixture must meet. The RAS can still handle any covered Finding separately.</p>
+    <div class="legend"><span class="pill pass">Pass</span><span class="pill fail">Fail</span><span class="pill check">Check with tape</span><span class="pill check">Answer</span><span class="pill na">N/A</span></div>
+    <p class="note">The scan is simulated, the measurements are invented, and the Recommendation wording is placeholder text until Ken's library replaces it. The TAS section numbers and required values are taken from the 2012 TAS, chapter 6.</p>
+  </section>
+
+  <section class="app" aria-label="Inspection app">
+    <div class="bar">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="steps" id="steps"></div>
+    </div>
+    <div class="body" id="body"></div>
+    <div class="nav">
+      <button class="btn" id="back" type="button">Back</button>
+      <button class="btn primary" id="next" type="button">Next</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const UNC = 0.6; // assumed scan uncertainty in inches (about 1.5 cm)
+const S = { real:{}, keep:{}, step:0, room:null, element:null, type:null, parent:'TR01', newRoom:'', code:null, desc:'Accessible stall', where:'Far end of the restroom, past the lavatory', scanned:false, tape:{}, na:{}, photo:{}, pick:{}, notes:{} };
+const SITE_NAME = 'Main Street Cafe';
+// locations already named at this site (small job, no pre-visit: named as the inspector goes)
+const SITE = [
+  {code:'SK01', name:'Handwashing sink', where:'Behind the front counter'},
+  {code:'SK02', name:'Dishwashing sink', where:'Kitchen, back wall'},
+  {code:'TR01', name:"Men's restroom", where:'Hallway, first door on the left'},
+  {code:'SK03', name:'Lavatory', where:'Inside TR01, next to the entry', parent:'TR01'},
+  {code:'DF01', name:'Drinking fountain', where:'Hallway, across from toilet rooms'},
+];
+const ROOM_PREFIX = {'Toilet room':'TR','Parking':'PK','Entrance and door':'EN','Drinking fountain':'DF','Ramp':'RP'};
+const EL_PREFIX = {'Toilet compartment (stall)':'TC','Lavatory':'SK','Urinal':'UR','Mirror':'MR','Room entry door':'DR'};
+function nextCode(prefix){
+  const n = SITE.filter(l=>l.code.startsWith(prefix)).map(l=>parseInt(l.code.slice(prefix.length))||0);
+  return prefix + String((n.length?Math.max(...n):0)+1).padStart(2,'0');
+}
+const LOC = () => S.code || '—';
+const INSPECTOR = 'K. (RAS)';
+const WHEN = '10/28/26 9:42 AM';
+
+const ROOMS = [
+  ['Toilet room','Toilet and bathing rooms','603'],
+  ['Parking','Parking spaces and access aisles','502'],
+  ['Entrance and door','Doors, doorways and gates','404'],
+  ['Drinking fountain','Drinking fountains','602'],
+  ['Ramp','Ramps','405'],
+];
+const ELEMENTS = [
+  ['Toilet compartment (stall)','604.8'],
+  ['Lavatory','606'],
+  ['Urinal','605'],
+  ['Mirror','603.3'],
+  ['Room entry door','404'],
+];
+const TYPES = [
+  ['Wheelchair accessible','At least 60" wide','604.8.1'],
+  ['Ambulatory accessible','35" to 37" wide, grab bars both sides','604.8.2'],
+  ["Children's",'Water closet for ages 3 to 12','604.9'],
+];
+
+// measured values are example data for a simulated scan
+// kind: 'scan' = measured by scan, 'manual' = too small to scan, 'yn' = a yes/no the scan cannot see
+const CHECKS = [
+  {id:'w',  what:'Compartment width', min:60, max:null, m:61.2, refs:['604.8.1.1']},
+  {id:'d',  what:'Compartment depth (floor-mounted WC)', min:59, max:null, m:58.7, refs:['604.8.1.1']},
+  {id:'cl', what:'Water closet centerline from side wall', min:16, max:18, m:17.1, refs:['604.2']},
+  {id:'sh', what:'Seat height', min:17, max:19, m:16.2, refs:['604.4']},
+  {id:'gh', what:'Side grab bar height', min:33, max:36, m:38.1, refs:['604.5','609.4']},
+  {id:'gl', what:'Side grab bar length', min:42, max:null, m:42.3, refs:['604.5.1']},
+  {id:'gr', what:'Side grab bar from rear wall', min:null, max:12, m:9.5, refs:['604.5.1']},
+  {id:'rl', what:'Rear grab bar length', min:36, max:null, m:37.0, refs:['604.5.2']},
+  {id:'dp', what:'Dispenser in front of water closet', min:7, max:9, m:11.5, refs:['604.7']},
+  {id:'do', what:'Dispenser outlet height', min:15, max:48, m:22.0, refs:['604.7']},
+  {id:'gd', what:'Grab bar diameter', min:1.25, max:2, m:null, refs:['609.2'], kind:'manual'},
+  {id:'sc', what:'Compartment door is self-closing', refs:['604.8.1.2'], kind:'yn'},
+  {id:'pu', what:'Door pulls on both sides near the latch', refs:['604.8.1.2'], kind:'yn'},
+];
+
+const FIND = {
+  sh:{short:'Toilet seat too low', long:v=>`The water closet seat in the wheelchair accessible compartment measures ${v}" above the finish floor to the top of the seat. 2012 TAS 604.4 requires 17" to 19".`,
+      recs:['Install a seat riser or replace the seat to bring the top of seat to {17–19}" AFF (now {v}").','Replace the water closet with a model whose seat is {17–19}" AFF.', 'WALLHUNG']},
+  gh:{short:'Side grab bar mounted too high', long:v=>`The side-wall grab bar is mounted ${v}" above the finish floor to the top of the gripping surface. 2012 TAS 604.5 and 609.4 require 33" to 36".`,
+      recs:['Relocate the side-wall grab bar so the top of the gripping surface is {33–36}" AFF (now {v}"). Provide blocking as needed.','Remove and replace the side-wall grab bar at {33–36}" AFF.']},
+  dp:{short:'Toilet paper dispenser too far forward', long:v=>`The toilet paper dispenser centerline is ${v}" in front of the water closet. 2012 TAS 604.7 requires 7" to 9".`,
+      recs:['Relocate the dispenser so its centerline is {7–9}" in front of the water closet (now {v}").','Replace with a dispenser that fits between the grab bar and the 7"–9" zone.']},
+  d:{short:'Compartment not deep enough', long:v=>`The wheelchair accessible compartment with a floor-mounted water closet is ${v}" deep. 2012 TAS 604.8.1.1 requires 59" minimum.`,
+      recs:['Relocate the front partition to provide {59}" minimum depth (now {v}").','WALLHUNG']},
+  gl:{short:'Side grab bar too short', long:v=>`The side-wall grab bar is ${v}" long. 2012 TAS 604.5.1 requires 42" minimum.`,
+      recs:['Replace the side-wall grab bar with one at least {42}" long (now {v}").']},
+  gd:{short:'Grab bar diameter out of range', long:v=>`The grab bar outside diameter is ${v}". 2012 TAS 609.2 requires 1 1/4" to 2".`,
+      recs:['Replace grab bars with bars {1 1/4"–2"} in outside diameter.']},
+  sc:{short:'Stall door not self-closing', long:()=>'The wheelchair accessible compartment door does not close by itself. 2012 TAS 604.8.1.2 requires the door to be self-closing.',
+      recs:['Install self-closing hinges on the compartment door.']},
+  pu:{short:'Door pulls missing', long:()=>'The wheelchair accessible compartment door does not have door pulls on both sides near the latch, as required by 2012 TAS 604.8.1.2.',
+      recs:['Install door pulls on both sides of the door near the latch.']},
+};
+
+// Library Recommendations that can settle other Findings at the same location
+const LIB = {
+  WALLHUNG:{
+    text:'Replace the floor-mounted water closet with a wall-hung model.',
+    covers:[
+      {id:'sh', how:'resolves', why:'The new water closet must have its seat at 17" to 19" AFF (TAS 604.4).'},
+      {id:'d',  how:'resolves', why:'A wall-hung water closet needs only 56" minimum depth (TAS 604.8.1.1).', test:()=>value(byId('d'))>=56},
+      {id:'dp', how:'recheck',  why:'The front of the new water closet may move. Re-check the dispenser at 7" to 9" in front of it (TAS 604.7) after installation.'},
+      {id:'cl', how:'condition',why:'Keep the centerline 16" to 18" from the side wall (TAS 604.2).'},
+    ]},
+};
+const byId = id => CHECKS.find(c=>c.id===id);
+function recOf(id){ const f=FIND[id], k=S.pick[id]; if(!f||!k||!k.startsWith('r')) return null; const r=f.recs[+k.slice(1)]; return LIB[r]?r:null; }
+// which chosen library Recommendation (on another Finding) settles this Finding, if any
+function coveredBy(id){
+  if(S.keep[id]) return null;
+  for(const other of Object.keys(S.pick)){
+    if(other===id) continue;
+    const r=recOf(other); if(!r) continue;
+    const cv=LIB[r].covers.find(x=>x.id===id && x.how==='resolves' && (!x.test||x.test()));
+    if(cv && status(byId(id))==='fail') return {from:other, lib:r, why:cv.why};
+  }
+  return null;
+}
+function rechecks(id){
+  const out=[];
+  for(const other of Object.keys(S.pick)){ const r=recOf(other); if(!r||other===id) continue;
+    LIB[r].covers.filter(x=>x.id===id && x.how==='recheck').forEach(x=>out.push({from:other, why:x.why})); }
+  return out;
+}
+function value(c){ return S.tape[c.id]!=null ? S.tape[c.id] : c.m; }
+function status(c){
+  if(S.na[c.id]) return 'na';
+  if(c.kind==='yn') return S.tape[c.id]==null ? 'answer' : (S.tape[c.id]==='yes' ? 'pass' : 'fail');
+  if(c.kind==='manual' && S.tape[c.id]==null) return 'check';
+  const v=value(c), tol = S.tape[c.id]!=null ? 0 : UNC;
+  const lo = c.min==null?-Infinity:c.min, hi = c.max==null?Infinity:c.max;
+  if(v < lo - tol || v > hi + tol) return 'fail';
+  if(v >= lo + tol && v <= hi - tol) return 'pass';
+  return 'check';
+}
+const done = c => ['pass','fail','na'].includes(status(c));
+function req(c){
+  if(c.kind==='yn') return 'Required';
+  if(c.min!=null && c.max!=null) return `${c.min}" to ${c.max}"`;
+  if(c.min!=null) return `${c.min}" min`;
+  return `${c.max}" max`;
+}
+const label = {pass:'Pass', fail:'Fail', check:'Check with tape', answer:'Answer', na:'N/A'};
+const cls = {pass:'pass', fail:'fail', check:'check', answer:'check', na:'na'};
+
+const STEPS = ['room','element','type','locate','scan','results','findings'];
+const $ = id => document.getElementById(id);
+
+function render(){
+  const placed = STEPS.indexOf('locate') < S.step && S.code;
+  const crumbs = placed ? [SITE_NAME, roomLabel(), S.code+' '+S.desc, S.type] : [SITE_NAME, S.room, S.element, S.type].filter(Boolean);
+  $('crumbs').innerHTML = crumbs.map((c,i)=> i===crumbs.length-1?`<b>${c}</b>`:c).join(' › ');
+  $('steps').innerHTML = STEPS.map((_,i)=>`<i class="${i<=S.step?'on':''}"></i>`).join('');
+  const b=$('body'); b.innerHTML='';
+  const st=STEPS[S.step];
+  if(st==='locate' && !S.code) S.code=nextCode(EL_PREFIX[S.element]||'EL');
+  $('back').disabled = S.step===0;
+  const nx=$('next');
+  const left=CHECKS.filter(c=>!done(c)).length;
+  nx.textContent = st==='scan' ? (S.scanned?'See checklist':'Scan first') : st==='results' ? (left?`${left} checks left`:'Make Findings') : st==='findings' ? 'Save to report' : 'Next';
+  nx.disabled = (st==='room'&&!S.room)||(st==='element'&&!S.element)||(st==='type'&&!S.type)||(st==='locate'&&!codeOk())||(st==='scan'&&!S.scanned)||(st==='results'&&left>0)||(st==='findings');
+  if(st==='room') pick(b,'What are you inspecting?','Main Street Cafe, a renovated cafe. Small job with no pre-visit, so locations get named as you go.',ROOMS.map(r=>({t:r[0],s:r[1],sec:r[2]})),'room');
+  if(st==='element') pick(b,'Which element?','Elements commonly found in a toilet room.',ELEMENTS.map(r=>({t:r[0],sec:r[1]})),'element');
+  if(st==='type') pick(b,'What type of stall?','The type decides which TAS requirements apply.',TYPES.map(r=>({t:r[0],s:r[1],sec:r[2]})),'type');
+  if(st==='locate') locate(b);
+  if(st==='scan') scan(b);
+  if(st==='results') results(b);
+  if(st==='findings') findings(b);
+}
+
+function roomLabel(){
+  if(S.parent==='new') return nextCode(ROOM_PREFIX[S.room]||'RM')+' '+(S.newRoom||'New room');
+  const r=SITE.find(l=>l.code===S.parent); return r? r.code+' '+r.name : '';
+}
+function codeOk(){ return S.code && S.code.trim() && !SITE.some(l=>l.code===S.code.trim().toUpperCase() && !l.mine); }
+function locate(b){
+  const rp=ROOM_PREFIX[S.room]||'RM', ep=EL_PREFIX[S.element]||'EL';
+  if(!S.code) S.code=nextCode(ep);
+  const rooms=SITE.filter(l=>l.code.startsWith(rp) && !l.parent);
+  b.insertAdjacentHTML('beforeend',`<h2>Name this location</h2>
+  <p class="hint">Codes are numbered across the whole site. The app suggests the next free number; type over it for a custom location.</p>
+  <div><b>Room</b></div>
+  <div class="choices" id="rooms"></div>
+  <div><b>This element</b></div>
+  <div class="tape"><label for="code">Code</label><input id="code" type="text" value="${S.code}" style="width:90px">
+    <label for="desc">Name</label><input id="desc" type="text" value="${S.desc}" style="width:160px"></div>
+  <div class="tape"><label for="where">Description</label><input id="where" type="text" value="${S.where}" style="flex:1;min-width:180px;width:auto"></div>
+  <p class="note">The code is used in short text and photo stamps. The description goes into the report.</p>
+  <p class="note" id="codeNote">${codeOk()?`Next free ${ep} code is ${nextCode(ep)}.`:'That code is already used at this site. Pick another.'}</p>
+  <div><b>Already named at ${SITE_NAME}</b></div>
+  <div class="found">${SITE.map(l=>`<span class="pill na" style="white-space:normal"><b>${l.code}</b> ${l.name}${l.where?' · '+l.where:''}</span>`).join('')}</div>`);
+  const box=$('rooms');
+  rooms.forEach(r=>{
+    const lab=document.createElement('label'); lab.className='opt'+(S.parent===r.code?' sel':'');
+    lab.innerHTML=`<input type="radio" name="room" ${S.parent===r.code?'checked':''}><span><b>${r.code}</b> ${r.name}</span>`;
+    lab.querySelector('input').onchange=()=>{ S.parent=r.code; render(); };
+    box.appendChild(lab);
+  });
+  const nl=document.createElement('label'); nl.className='opt'+(S.parent==='new'?' sel':'');
+  nl.innerHTML=`<input type="radio" name="room" ${S.parent==='new'?'checked':''}><span><b>New: ${nextCode(rp)}</b> <input id="newRoom" type="text" placeholder="e.g. Women's restroom" value="${S.newRoom}" style="width:170px;font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)"></span>`;
+  nl.querySelector('input[type=radio]').onchange=()=>{ S.parent='new'; render(); };
+  nl.querySelector('#newRoom').oninput=e=>{ S.newRoom=e.target.value; };
+  box.appendChild(nl);
+  $('code').oninput=e=>{ S.code=e.target.value.toUpperCase(); $('next').disabled=!codeOk(); $('codeNote').textContent = codeOk()?'Custom code. It will be added to the site list.':'That code is already used at this site. Pick another.'; };
+  $('desc').oninput=e=>{ S.desc=e.target.value; };
+  $('where').oninput=e=>{ S.where=e.target.value; };
+}
+
+function pick(b,title,hint,items,key){
+  b.insertAdjacentHTML('beforeend',`<h2>${title}</h2><p class="hint">${hint}</p><div class="choices"></div>`);
+  const box=b.querySelector('.choices');
+  items.forEach(it=>{
+    const el=document.createElement('button'); el.type='button'; el.className='choice';
+    el.innerHTML=`<span>${it.t}${it.s?`<small>${it.s}</small>`:''}</span><span class="sec">${it.sec}</span>`;
+    if(S[key]===it.t) el.style.borderColor='var(--accent)';
+    const live={room:'Toilet room',element:'Toilet compartment (stall)',type:'Wheelchair accessible'}[key];
+    if(live && it.t!==live){ el.disabled=true; el.style.opacity='.5'; el.style.cursor='default'; el.querySelector('span').insertAdjacentHTML('beforeend','<small>Not built in this prototype</small>'); }
+    el.onclick=()=>{ S[key]=it.t; S.step++; render(); };
+    box.appendChild(el);
+  });
+}
+
+function scan(b){
+  b.insertAdjacentHTML('beforeend',`<h2>Scan the stall</h2>
+  <p class="hint">Wheelchair accessible compartment, 2012 TAS 604.8.1. The scan finds the parts of the stall and builds the checklist from them.</p>
+  <div class="scanbox">
+    <b>How to scan</b>
+    <ol>
+      <li>Put the 12" scale card on the side wall, below the grab bar.</li>
+      <li>From the door, sweep slowly across the rear wall, the side wall and the floor.</li>
+      <li>Step in and capture the grab bars, the seat and the dispenser close up.</li>
+    </ol>
+  </div>
+  <button class="btn" type="button" id="doScan">${S.scanned?'Scan complete. Rescan':'Start scan (simulated)'}</button>
+  ${S.scanned?`<div><b>Found in the scan</b><div class="found">${['Water closet','Side wall','Rear wall','Side grab bar','Rear grab bar','Dispenser','Compartment door','Front partition'].map(x=>`<span class="pill pass">${x}</span>`).join('')}</div>
+  <p class="note">${CHECKS.length} TAS checks apply: ${CHECKS.filter(c=>!c.kind).length} measured by the scan, ${CHECKS.filter(c=>c.kind==='manual').length} by hand, ${CHECKS.filter(c=>c.kind==='yn').length} yes or no questions.</p></div>`:''}
+  <p class="note">Photos are real: Take photo opens your phone's camera (or a file picker on a computer) and stamps the reading onto the image. A real app would use the LiDAR sensor on an iPhone Pro or iPad Pro. Published tests put those sensors at about ±1 to 1.5 cm (±0.4" to 0.6") for room-scale measurements, and less accurate on small parts.</p>`);
+  $('doScan').onclick=()=>{ S.scanned=true; render(); };
+}
+
+function svg(){
+  const X=i=>30+i*4, Y=i=>270-i*4, col=id=>`var(--${cls[status(byId(id))]})`;
+  const gh=value(byId('gh')), sh=value(byId('sh'));
+  return `<svg viewBox="0 0 360 290" width="100%" role="img" aria-label="Side wall elevation with measured dimensions">
+  <rect x="30" y="20" width="320" height="250" fill="var(--surface)" stroke="var(--line)"/>
+  <line x1="10" y1="270" x2="350" y2="270" stroke="var(--fg)" stroke-width="2"/>
+  <line x1="30" y1="20" x2="30" y2="270" stroke="var(--fg)" stroke-width="2"/>
+  <text x="34" y="34" fill="var(--muted)">rear wall</text><text x="300" y="284" fill="var(--muted)">floor</text>
+  <rect x="${X(3)}" y="${Y(30)}" width="28" height="${30*4-sh*4}" fill="var(--line)" stroke="var(--muted)"/>
+  <path d="M${X(4)} ${Y(sh)} L${X(28)} ${Y(sh)} Q${X(28)} ${Y(8)} ${X(18)} ${Y(4)} L${X(10)} ${Y(0)} L${X(4)} ${Y(0)} Z" fill="var(--line)" stroke="var(--muted)"/>
+  <line x1="${X(9.5)}" y1="${Y(gh)}" x2="${X(9.5+42.3)}" y2="${Y(gh)}" stroke="${col('gh')}" stroke-width="5" stroke-linecap="round"/>
+  <rect x="${X(39.5)-10}" y="${Y(22)-14}" width="20" height="14" rx="3" fill="var(--surface)" stroke="${col('dp')}" stroke-width="2"/>
+  <line x1="${X(50)}" y1="${Y(0)}" x2="${X(50)}" y2="${Y(gh)}" stroke="${col('gh')}" stroke-dasharray="3 3"/>
+  <text x="${X(50)+4}" y="${Y(gh/2)}" fill="${col('gh')}">${gh}"</text>
+  <line x1="${X(26)}" y1="${Y(0)}" x2="${X(26)}" y2="${Y(sh)}" stroke="${col('sh')}" stroke-dasharray="3 3"/>
+  <text x="${X(26)-34}" y="${Y(sh/2)+12}" fill="${col('sh')}">${sh}"</text>
+  <line x1="${X(39.5)}" y1="${Y(22)-14}" x2="${X(39.5)}" y2="${Y(17)}" stroke="${col('dp')}" stroke-dasharray="2 2"/>
+  <line x1="${X(28)}" y1="${Y(17)}" x2="${X(39.5)}" y2="${Y(17)}" stroke="${col('dp')}" stroke-dasharray="3 3"/>
+  <text x="${X(30)}" y="${Y(17)+12}" fill="${col('dp')}">${value(byId('dp'))}"</text>
+  <text x="${X(30)}" y="${Y(gh)-8}" fill="${col('gl')}">grab bar ${value(byId('gl'))}" long</text>
+  <rect x="${X(60)}" y="${Y(14)}" width="48" height="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+  <text x="${X(60)}" y="${Y(14)-4}" fill="var(--accent)">12" card</text>
+  </svg>`;
+}
+
+// stylised evidence photo with the reading stamped on it
+function stampLines(c, src, when){
+  const v = c.kind==='yn' ? (S.tape[c.id]==='yes'?'Yes':'No') : (value(c)==null?'—':value(c)+'"');
+  return [`${LOC()} · ${S.desc} · ${c.what}`, `Reading ${v} by ${src} · required ${req(c)}`, `TAS ${c.refs.join(', ')} · ${when}`];
+}
+// real camera photo: burn the stamp into the image so it travels with the file
+function addPhoto(c, file){
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{
+    const W=Math.min(1600,img.naturalWidth), H=Math.round(img.naturalHeight*W/img.naturalWidth);
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const g=cv.getContext('2d'); g.drawImage(img,0,0,W,H);
+    const fs=Math.max(14,Math.round(W/45)), pad=Math.round(fs*.6), lines=stampLines(c, S.tape[c.id]!=null?(S.photo[c.id]||'tape'):'scan', new Date().toLocaleString());
+    const band=lines.length*fs*1.35+pad*2;
+    g.fillStyle='rgba(0,0,0,.68)'; g.fillRect(0,H-band,W,band);
+    g.fillStyle='#ffffff'; g.font=`${fs}px ui-monospace, Menlo, Consolas, monospace`; g.textBaseline='top';
+    lines.forEach((t,k)=>g.fillText(t,pad,H-band+pad+k*fs*1.35,W-pad*2));
+    (S.real[c.id]=S.real[c.id]||[]).push(cv.toDataURL('image/jpeg',.82));
+    URL.revokeObjectURL(url); render();
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); alertBox('That file could not be read as a photo.'); };
+  img.src=url;
+}
+function alertBox(msg){ const n=document.createElement('p'); n.className='note'; n.textContent=msg; $('body').prepend(n); }
+let camN=0;
+function camButton(c, text){
+  const id='cam-'+c.id+'-'+(camN++);
+  const w=document.createElement('span');
+  w.innerHTML=`<input type="file" accept="image/*" capture="environment" id="${id}" hidden><label for="${id}" class="mini" style="display:inline-block">${text}</label>`;
+  w.querySelector('input').onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f) addPhoto(c,f); };
+  return w;
+}
+function stamp(c, src){
+  if(S.real[c.id]&&S.real[c.id].length) return S.real[c.id].map((u,k)=>`<div class="photo"><img src="${u}" alt="Photo ${k+1} of ${c.what}" style="display:block;width:100%"></div>`).join('');
+  const v = c.kind==='yn' ? (S.tape[c.id]==='yes'?'Yes':'No') : value(c)+'"';
+  const what=c.what.length>25?c.what.slice(0,24)+'…':c.what;
+  const lines=[LOC()+' · '+what, `${v} by ${src} · req. ${req(c)}`, `TAS ${c.refs.join(', ')} · ${WHEN}`];
+  return `<div class="photo"><svg viewBox="0 0 150 100" width="100%" role="img" aria-label="Evidence photo of ${c.what}">
+    <rect width="150" height="100" fill="#3b4656"/>
+    <rect x="0" y="62" width="150" height="38" fill="#2a323e"/>
+    <rect x="20" y="30" width="95" height="5" rx="2.5" fill="#c9ced6"/>
+    <rect x="${c.kind==='yn'?55:60}" y="8" width="7" height="${c.kind==='yn'?45:54}" fill="#e8c547"/>
+    ${c.kind==='yn'?'':'<g fill="#3b4656">'+[0,1,2,3,4,5].map(k=>`<rect x="60" y="${10+k*9}" width="3" height="1"/>`).join('')+'</g>'}
+    <rect x="0" y="66" width="150" height="34" fill="rgba(0,0,0,.65)"/>
+    ${lines.map((t,k)=>`<text x="4" y="${76+k*9}" fill="#ffffff">${t}</text>`).join('')}
+  </svg></div>`;
+}
+
+function results(b){
+  const sts=CHECKS.map(status), n=k=>sts.filter(s=>s===k).length;
+  const ok=CHECKS.filter(done).length;
+  b.insertAdjacentHTML('beforeend',`<h2>Checklist</h2>
+  <div class="progress"><div class="note"><b>${ok} of ${CHECKS.length}</b> checks done. Findings unlock when every check is done or marked N/A.</div><div class="track"><div class="fillbar" style="width:${ok/CHECKS.length*100}%"></div></div></div>
+  <div class="summary"><span class="pill pass">${n('pass')} pass</span><span class="pill fail">${n('fail')} fail</span><span class="pill check">${n('check')+n('answer')} to do</span>${n('na')?`<span class="pill na">${n('na')} N/A</span>`:''}</div>
+  <div class="svgwrap">${svg()}<div class="cap">Side wall, from the scan. Illustration of what the overlay would show.</div></div>
+  <div class="checks" id="checks"></div>`);
+  const box=$('checks');
+  CHECKS.forEach(c=>{
+    const s=status(c), v=value(c);
+    const row=document.createElement('div'); row.className='row';
+    const shown = c.kind==='yn' ? (S.tape[c.id]?(S.tape[c.id]==='yes'?'Yes':'No'):'—') : (v==null?'—':v+'"');
+    row.innerHTML=`<div><div class="what">${c.what}</div><div class="req">${c.kind==='yn'?'Required':'Required '+req(c)} · ${c.refs.map(r=>'TAS '+r).join(', ')}</div></div>
+      <div class="val">${s==='na'?'':shown}${S.photo[c.id]?` <span class="note">${S.photo[c.id]}</span>`:''}<br><span class="pill ${cls[s]}">${label[s]}</span></div>`;
+    const t=document.createElement('div'); t.className='tape';
+    if(s==='check'){
+      t.innerHTML=`<label for="tape-${c.id}">${c.kind==='manual'?'Too small to scan. Reading':'Too close to the limit for the scan. Reading'}</label>
+        <input id="tape-${c.id}" type="number" step="0.125" inputmode="decimal" placeholder="inches">
+        <button type="button" data-a="save">Save + photo</button><button type="button" data-a="laser">Bluetooth laser</button><button type="button" data-a="na" class="mini">N/A</button>`;
+      t.querySelector('[data-a=save]').onclick=()=>{ const x=parseFloat(t.querySelector('input').value); if(!isNaN(x)){ S.tape[c.id]=x; S.photo[c.id]='tape'; render(); } };
+      t.querySelector('[data-a=laser]').onclick=()=>{ S.tape[c.id]= c.kind==='manual'?1.5:(c.id==='d'?58.5:41.75); S.photo[c.id]='laser'; render(); };
+    } else if(s==='answer'){
+      t.innerHTML=`<span>Check by hand:</span><button type="button" data-a="yes">Yes</button><button type="button" data-a="no">No</button><button type="button" data-a="na" class="mini">N/A</button>`;
+      t.querySelector('[data-a=yes]').onclick=()=>{ S.tape[c.id]='yes'; S.photo[c.id]='photo'; render(); };
+      t.querySelector('[data-a=no]').onclick=()=>{ S.tape[c.id]='no'; S.photo[c.id]='photo'; render(); };
+    } else if(s==='na'){
+      t.innerHTML=`<button type="button" class="mini" data-a="undo">Undo N/A</button>`;
+      t.querySelector('[data-a=undo]').onclick=()=>{ delete S.na[c.id]; render(); };
+    }
+    const naBtn=t.querySelector('[data-a=na]');
+    if(naBtn) naBtn.onclick=()=>{ S.na[c.id]=true; render(); };
+    if((S.photo[c.id]||(S.real[c.id]&&S.real[c.id].length)) && s!=='na'){ t.insertAdjacentHTML('beforeend', `<div class="photos">${stamp(c, S.photo[c.id]||'scan')}</div>`); }
+    if(s!=='na' && s!=='answer'){ t.appendChild(camButton(c, S.real[c.id]&&S.real[c.id].length?'Add another photo':'Take photo')); }
+    if(t.innerHTML) row.appendChild(t);
+    box.appendChild(row);
+  });
+}
+
+function fill(t,v){ return t.replace('{v}',`<span class="v">${v}</span>`).replace(/\{([^}]+)\}/g,'<span class="v">$1</span>'); }
+
+function findings(b){
+  const fails=CHECKS.filter(c=>status(c)==='fail' && FIND[c.id]);
+  const covered=fails.filter(c=>coveredBy(c.id));
+  b.insertAdjacentHTML('beforeend',`<h2>${fails.length} Findings</h2>
+  <p class="hint">Category: Toilet room · Item: Wheelchair accessible compartment. All ${CHECKS.length} checks are done. Pick a Recommendation for each Finding, write a custom one, or defer the choice to the office. Some Recommendations settle other Findings too.</p>
+  ${covered.length?`<div class="summary"><span class="pill pass">${covered.length} covered by another Recommendation</span></div>`:''}`);
+  fails.forEach(c=>{
+    const f=FIND[c.id], v=value(c), cov=coveredBy(c.id);
+    const card=document.createElement('div'); card.className='finding';
+    if(cov) card.style.opacity='.85';
+    const refs=[...new Set(['213.3.2','604.8.1',...c.refs])];
+    card.innerHTML=`<div class="note"><b>${S.code}</b> · ${S.desc}, ${S.where}</div><div class="short">${f.short}${cov?' <span class="pill pass">Covered</span>':''}</div><p class="long">${f.long(v)}</p>
+      <div class="refs">${refs.map(r=>`<span class="sec">TAS ${r}</span>`).join('')}</div>
+      <div class="photos">${stamp(c, S.photo[c.id]||'scan')}</div>`;
+    card.appendChild(camButton(c, S.real[c.id]&&S.real[c.id].length?`Add another photo (${S.real[c.id].length} so far)`:'Take a real photo'));
+    if(cov){
+      card.insertAdjacentHTML('beforeend',`<div class="opt sel"><span><b>Covered by:</b> ${LIB[cov.lib].text} (chosen under “${FIND[cov.from].short}”). ${cov.why}</span></div>`);
+      const k=document.createElement('button'); k.type='button'; k.className='mini'; k.textContent='Handle this Finding separately';
+      k.onclick=()=>{ S.keep[c.id]=true; render(); };
+      card.appendChild(k);
+      b.appendChild(card); return;
+    }
+    rechecks(c.id).forEach(rc=>card.insertAdjacentHTML('beforeend',`<div class="opt" style="border-color:var(--check);background:var(--check-soft)"><span><b>Affected by</b> the Recommendation under “${FIND[rc.from].short}”. ${rc.why}</span></div>`));
+    const opts=[...f.recs.map((r,i)=>({k:'r'+i,html: LIB[r] ? `${LIB[r].text} <span class="pill check">also settles other Findings</span>` : fill(r,v)})),
+      {k:'custom',html:'<b>Custom.</b> Write a unique Recommendation for this site.'},
+      {k:'defer',html:'<b>Defer.</b> Decide in the office before the report goes out.'}];
+    opts.forEach(o=>{
+      const lab=document.createElement('label'); lab.className='opt'+(S.pick[c.id]===o.k?' sel':'');
+      lab.innerHTML=`<input type="radio" name="rec-${c.id}" ${S.pick[c.id]===o.k?'checked':''}><span>${o.html}</span>`;
+      lab.querySelector('input').onchange=()=>{ S.pick[c.id]=o.k; render(); };
+      card.appendChild(lab);
+    });
+    const lib=recOf(c.id);
+    if(lib){
+      const conds=LIB[lib].covers.filter(x=>x.how!=='recheck' && (!x.test||x.test()) || x.how==='condition');
+      const nots=LIB[lib].covers.filter(x=>x.test && !x.test());
+      card.insertAdjacentHTML('beforeend',`<div class="opt" style="cursor:default;flex-direction:column;gap:4px"><b>Combined Recommendation for the report</b>
+        <span>${LIB[lib].text} The new fixture must meet:</span>
+        <ul style="margin:0;padding-left:18px">${LIB[lib].covers.filter(x=>x.how!=='recheck').map(x=>`<li>${x.why}</li>`).join('')}</ul>
+        <span>${LIB[lib].covers.filter(x=>x.how==='recheck').map(x=>x.why).join(' ')}</span>
+        ${nots.length?`<span class="note">Not settled: ${nots.map(x=>FIND[x.id].short).join(', ')} (measured value too small).</span>`:''}</div>`);
+    }
+    if(S.keep[c.id]){
+      const u=document.createElement('button'); u.type='button'; u.className='mini'; u.textContent='Let other Recommendations cover this again';
+      u.onclick=()=>{ delete S.keep[c.id]; render(); }; card.appendChild(u);
+    }
+    if(S.pick[c.id]==='custom'){
+      const ta=document.createElement('textarea'); ta.id='notes-'+c.id;
+      ta.placeholder='Notes for the custom Recommendation, e.g. existing plumbing wall prevents relocating the grab bar; consider a swing-up bar per Exception.';
+      ta.value=S.notes[c.id]||''; ta.oninput=()=>{ S.notes[c.id]=ta.value; };
+      card.appendChild(ta);
+      card.insertAdjacentHTML('beforeend','<p class="note">The AI drafts the formal Recommendation from these notes and the Finding. The RAS reviews it in the office.</p>');
+    }
+    b.appendChild(card);
+  });
+  const allPicked=fails.every(c=>S.pick[c.id] || coveredBy(c.id));
+  b.insertAdjacentHTML('beforeend',`<p class="note">${allPicked?'Every Finding has a Recommendation, is covered by one, has a custom note or is deferred. Ready to save.':'Highlighted values come from the measurement. The rest of the wording comes from the Recommendation library.'}</p>`);
+  $('next').disabled=!allPicked;
+}
+
+function go(d){ S.step=Math.max(0,Math.min(STEPS.length-1,S.step+d)); render(); }
+$('back').onclick=()=>go(-1);
+$('next').onclick=()=>{
+  if(STEPS[S.step]==='locate'){
+    if(S.parent==='new'){ const c=nextCode(ROOM_PREFIX[S.room]||'RM'); SITE.push({code:c,name:S.newRoom||'New room',where:''}); S.parent=c; }
+    S.code=S.code.trim().toUpperCase();
+    for(let i=SITE.length-1;i>=0;i--) if(SITE[i].mine) SITE.splice(i,1);
+    SITE.push({code:S.code,name:S.desc,where:S.where,parent:S.parent,mine:true});
+  }
+  if(STEPS[S.step]==='findings'){ $('next').textContent='Saved (example)'; $('next').disabled=true; } else go(1); };
+render();
+</script>

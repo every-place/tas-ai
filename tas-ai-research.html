@@ -1,0 +1,239 @@
+<title>TAS Findings Engine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: single reading column, report sections, a chain diagram and reference tables that scroll on their own. */
+:root{
+  --bg:#f6f8fb; --surface:#ffffff; --fg:#17202e; --muted:#566275; --line:#d8dee8;
+  --accent:#1f4e9a; --accent-soft:#e6eefb; --warn:#8a5a00; --warn-soft:#fff4dc;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10151d; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545;
+  --accent:#8db4f5; --accent-soft:#1c2a42; --warn:#f0c46a; --warn-soft:#2e2615; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151d; --surface:#171e29; --fg:#e4e9f1; --muted:#9aa6b8; --line:#2b3545;
+  --accent:#8db4f5; --accent-soft:#1c2a42; --warn:#f0c46a; --warn-soft:#2e2615; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
+.wrap{max-width:860px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+header{display:flex;flex-direction:column;gap:8px;border-bottom:3px solid var(--accent);padding-bottom:20px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-size:clamp(34px,6vw,48px);line-height:1.05;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:28px;line-height:1.15;margin:0 0 12px;text-wrap:balance}
+h3{font-size:16px;margin:16px 0 4px}
+p{margin:0 0 12px;max-width:68ch} ul,ol{margin:0 0 12px;padding-left:22px;max-width:68ch} li{margin-bottom:6px}
+a{color:var(--accent)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin:0}
+.sec{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:3px;white-space:nowrap}
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.summary ol{margin:0}
+.note{background:var(--warn-soft);border-left:4px solid var(--warn);padding:12px 16px;border-radius:0 4px 4px 0}
+.note p{margin:0}
+.chain{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.link{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);padding:12px;border-radius:4px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.link b{font-family:var(--display);font-size:20px}
+.link .k{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.link span{font-size:14px;color:var(--muted);line-height:1.45}
+.link .ex{color:var(--fg)}
+@media (max-width:640px){.chain{grid-template-columns:1fr 1fr}}
+@media (max-width:420px){.chain{grid-template-columns:1fr}}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:620px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.pill.no{color:var(--muted)} .pill.yes{color:var(--accent);border-color:var(--accent)}
+.layers{display:flex;flex-direction:column;gap:10px}
+.layer{display:grid;grid-template-columns:44px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px}
+.layer .n{font-family:var(--display);font-size:28px;color:var(--accent);line-height:1}
+.layer div{min-width:0} .layer p{margin:4px 0 0;font-size:15px}
+.phase{display:grid;grid-template-columns:120px 1fr;gap:6px 16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.phase:last-child{border-bottom:0}
+.phase .when{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:3px}
+.phase b{display:block}
+@media (max-width:520px){.phase{grid-template-columns:1fr}}
+.src{font-size:13px;color:var(--muted)} .src li{margin-bottom:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Research and proposed design · 27 Oct 2026</div>
+  <h1>An AI assistant for Texas RAS inspections</h1>
+  <p class="lede">A tool that takes the findings a RAS recorded on site and drafts the report: TAS citations, recommended fixes, and the TDLR letter. This page covers what already exists, how to load the 2012 TAS, and a design focused on report writing first.</p>
+</header>
+
+<section class="summary">
+  <h2>Short version</h2>
+  <ol>
+    <li><b>Nobody sells a TAS-specific AI that I could find.</b> There are AI plan checkers for general building codes, older barrier databases that link findings to fixes the way your Zoho app did, and phone Q&amp;A apps for the 2010 ADA. None of them join the three for Texas.</li>
+    <li><b>The 2012 TAS is easier to load than it looks.</b> TDLR publishes every chapter as real HTML text with anchors for each section number. Only the figures are images, and each one already carries its figure number and caption. Cleaning it into a database is days of work, not months.</li>
+    <li><b>Start with the report, after the inspection.</b> The RAS records findings as usual. The tool reads them, adds TAS citations and recommended fixes, and drafts the full report and transmittal letter. The RAS reviews and signs. Photo analysis and in-field help come later.</li>
+    <li><b>Cheapest first test:</b> load the TAS, then give the AI 20 to 30 of Ken's past findings and score whether it picks the same citations and fixes he did.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Finding, Category, Item, Recommendation</h2>
+  <p>This is the chain from the Oakland Zoho app. Category and Item work as a reusable library. The inspector picks them, and they carry the TAS citation and standard wording into the Finding and the Recommendation.</p>
+  <div class="chain">
+    <div class="link"><span class="k">1 · what you saw</span><b>Finding</b><span>At one Location. A short version for field and summary tables, and a long formal version for the report. Unlimited photos.</span><span class="ex">Short: "Grab bar too high."</span></div>
+    <div class="link"><span class="k">2 · area of work</span><b>Category</b><span>Groups the Items, for example Toilet Rooms, Parking, Accessible Route, Drinking Fountains.</span><span class="ex">Toilet Rooms</span></div>
+    <div class="link"><span class="k">3 · the requirement</span><b>Item</b><span>One checkable requirement with its TAS section, the required value, and template text for the long Finding and the Recommendation.</span><span class="ex">Grab bar height, <span class="sec">609.4</span>, 33"–36" AFF</span></div>
+    <div class="link"><span class="k">4 · the fix</span><b>Recommendation</b><span>Short and long versions, drafted from the Item and the measured value, plus priority and cost.</span><span class="ex">Short: "Lower grab bar to 33"–36"."</span></div>
+  </div>
+  <p><b>Example long Finding:</b> "The side-wall grab bar at the water closet is mounted at 38 inches above the finish floor, measured to the top of the gripping surface. 2012 TAS <span class="sec">604.5</span> and <span class="sec">609.4</span> require 33 to 36 inches." The AI writes this from the short Finding, the measurement and the Item. The RAS edits it if needed.</p>
+  <h3>Every TAS reference for each Finding</h3>
+  <p>A Finding can cite one section or several. TAS numbers sections by chapter and level, for example <span class="sec">604.8.1.2</span>, with numbered Exceptions under some sections. A typical Finding cites a scoping section from chapter 2 (where the rule applies) and one or more technical sections from chapters 3 to 10 (what is required). For the grab bar example: <span class="sec">213.3.2</span> scoping for water closets, <span class="sec">604.5</span> grab bars at water closets, <span class="sec">609.4</span> mounting height, and <span class="sec">609.2</span> if the bar's size is also wrong.</p>
+  <p>The Item fills in its usual sections. The AI then adds or removes sections based on what the Finding actually says, the RAS confirms each one, and every number is checked against the TAS library so the report never cites a section that does not exist.</p>
+  <h3>Locations: Site, Facility, Level, Location</h3>
+  <p>Example: Oakland HS, Building B, Level 2, DF03 (the third drinking fountain on the site). As on the Oakland job, locations are marked on the site map during the walk-through and loaded before the inspection, so inspectors pick a Location instead of typing it. The location code prefix (DF, TR, PK) can also suggest the Category.</p>
+  <p>Small jobs, such as a renovated cafe, don't justify a pre-visit. There the inspector names locations on the spot. The app suggests the next free code for the element type, numbered across the whole site: TR01 for the men's restroom, SK01 for the handwashing sink behind the counter, SK02 for the dishwashing sink, and SK03 for the lavatory in TR01. The inspector can type a custom code or name instead, and the app blocks duplicates. Each location also gets a one-line description, such as "DF01: hallway, across from toilet rooms". Short text and photo stamps use the code, and the report adds the description so readers can find the spot.</p>
+  <div class="note"><p><b>Worth checking:</b> Oakland Unified is in California, so that job was most likely surveyed against the California Building Code chapter 11B and the 2010 ADA Standards, not TAS. The data model works the same way. The standards table just needs a column for which code a section belongs to.</p></div>
+</section>
+
+<section>
+  <h2>What already exists</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Product or approach</th><th>What it does</th><th>Covers TAS?</th><th>What to take from it</th></tr></thead>
+    <tbody>
+      <tr><td><b>CodeComply.ai</b></td><td>AI review of PDF plan sets against IBC, NFPA, ADA, FHA and local amendments. Cited answers and a code-cited report.</td><td><span class="pill no">Not listed</span></td><td>Proves AI plan review is commercial. A future plan-review mode for the $50k+ TAS reviews.</td></tr>
+      <tr><td><b>Archistar AI PreCheck</b></td><td>AI plan checking sold to cities for permits.</td><td><span class="pill no">No</span></td><td>Customer is the city, not the RAS.</td></tr>
+      <tr><td><b>UpCodes</b></td><td>Searchable code library with an AI assistant.</td><td><span class="pill no">Not confirmed</span></td><td>A citation assistant is useful on its own.</td></tr>
+      <tr><td><b>Evan Terry Associates, Barrier Management System</b></td><td>Database linking each barrier to standard section and figure, measured condition, standard solution, adjusted unit cost, priority, funding source, and after-photos.</td><td><span class="pill no">ADA</span></td><td>The closest match to your Zoho setup. No AI, but a proven schema.</td></tr>
+      <tr><td><b>CASp reports (California)</b></td><td>Per item: element, location, code section, measured versus required, compliance class, corrective action, priority.</td><td><span class="pill no">CBC 11B</span></td><td>A ready field list for each Finding.</td></tr>
+      <tr><td><b>Code Snap: AI ADA Guide</b> (iOS)</td><td>Paid Q&amp;A with paraphrased 2010 ADA guidance. No photo input.</td><td><span class="pill no">No</span></td><td>Shows demand for quick answers in the field.</td></tr>
+      <tr><td><b>Law firms</b></td><td>I found no public AI product. Plaintiff and defense firms hire consultants who run surveys like yours.</td><td><span class="pill no">n/a</span></td><td>A possible customer for cited, consistent reports, not a competitor.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Getting the 2012 TAS into shape</h2>
+  <ul>
+    <li><b>Text.</b> Ten chapter pages at <code>tdlr.texas.gov/ab/2012abtas{1–10}.htm</code>, with section anchors such as <span class="sec">#405</span>. They include Exceptions and Advisory notes inline. Chapter PDFs exist too.</li>
+    <li><b>Figures.</b> GIFs under <code>/ab/2012TAS/images/</code>, named by figure number, for example <code>604.8.1.1.gif</code>. A vision model can describe each one once, and Ken can check the descriptions.</li>
+    <li><b>Interpretations.</b> TDLR has 24 Technical Memoranda for the 2012 TAS (2012 to 2017), on topics like clustered toilet rooms, sinks and employee work areas. These change answers, so they belong in the library.</li>
+    <li><b>Report rules.</b> RAS transmittal letters must use the prescribed paragraphs in 16 TAC <span class="sec">68.53(b)</span>. Owners have 270 days to correct items. The letter states that it covers only Chapter 469, not the ADA.</li>
+  </ul>
+  <p>The site blocked a direct download from my sandbox, but my reader tool could fetch the pages, so a full import is practical.</p>
+</section>
+
+<section>
+  <h2>Proposed architecture</h2>
+  <div class="layers">
+    <div class="layer"><div class="n">1</div><div><b>Standards library</b><p>Every TAS section as its own record: number, parent, text, exceptions, advisory, figures, related memoranda. The Item library holds the numbers inspectors check, such as max slope 1:12 or grab bar 33"–36", each tied to its section. Ken reviews it once.</p></div></div>
+    <div class="layer"><div class="n">2</div><div><b>Findings intake</b><p>Takes the findings the RAS recorded against preloaded Locations: Category, Item, short Finding, measurements and any number of photos. These come from the Zoho form, a spreadsheet, or typed notes. Measured values are checked against the Item's required values by plain rules, so a pass or fail never depends on the AI.</p></div></div>
+    <div class="layer"><div class="n">3</div><div><b>Drafting assistant</b><p>Claude reads each short Finding, its photos and the Item's TAS sections. It suggests the Item if the inspector left it blank, and writes the long formal Finding and the Recommendation. Every citation is checked against the library, so the AI cannot cite a section that does not exist. The RAS accepts or edits each item on one review screen.</p></div></div>
+    <div class="layer"><div class="n">4</div><div><b>Report generator</b><p>Builds the inspection report with photos and the transmittal letter in TDLR's required wording. Accepted edits flow back as examples that improve later drafts.</p></div></div>
+  </div>
+  <p style="margin-top:12px">Later, the same library supports in-field help, plan review of PDF drawings, and the TAS paperwork and deadline tracking (registration, 270-day corrections). Live video is the hardest piece and comes last.</p>
+</section>
+
+<section>
+  <h2>Guided field inspection with scanning</h2>
+  <p>This is Aaron's idea for the field. The app leads the inspector step by step: room, then element, then type, for example Toilet room, then Stall, then Wheelchair accessible. Those choices map to Category and Item, so the app knows which TAS checks apply. The inspector scans the stall, the app measures and marks each value on the image, then turns failures into Findings with their TAS references. Each Finding gets Recommendation options from the library, and the inspector can pick one or defer the choice to the office. <a href="https://claude.ai/artifact/Nw8wcnpQBBvSvYrdx2CxgR">Try the clickable prototype</a>.</p>
+  <h3>How accurate is a phone or tablet scan?</h3>
+  <p>Published tests put iPhone Pro and iPad Pro LiDAR at about ±1 to 1.5 cm (±0.4" to 0.6") for room-scale measurements. The same tests found small objects much less reliable. A professional laser scanner reaches about ±0.5 cm. Apple's own room-scanning tool can recognise toilets, sinks and doors, but not grab bars or dispensers, so those would need a custom model.</p>
+  <p>TAS gives no tolerance on ranges. Under <span class="sec">104.1.1</span>, a grab bar must be between 33" and 36", and 36.2" fails. A scan alone therefore cannot decide close cases. The design uses three results:</p>
+  <ul>
+    <li><b>Clear pass or clear fail.</b> The value is more than the scan's error away from the limit, for example a grab bar at 38" or a seat at 16".</li>
+    <li><b>Check with tape.</b> The value is within the scan's error of a limit. The inspector measures it by hand and types the reading in, or a Bluetooth laser measure sends it in.</li>
+    <li><b>Manual only.</b> Small parts like grab bar diameter, plus things a scan can't see, such as a self-closing door or the force needed to open it.</li>
+  </ul>
+  <p>Done this way, the scan handles most of the measuring and documents every element with images, while the tape still decides the close calls. The RAS keeps the final say.</p>
+  <h3>The scan drives the inspection</h3>
+  <p>Aaron's second idea goes further. The scan identifies the parts of the stall and builds the full TAS checklist from them. Findings can't be made until every check is measured, answered or marked not applicable, which removes the risk of forgetting a measurement. Every tape or laser reading is saved with a photo stamped with the location, reading, requirement, TAS section and time, and that photo goes into the Finding. Each Finding then offers library Recommendations, a custom option with notes that the AI turns into formal wording, or a deferral. This is also the first step toward robotic inspection: once the checklist comes from the scan, any device that can scan and measure could run it.</p>
+  <h3>When one Recommendation settles others</h3>
+  <p>Fixes often overlap. If the Recommendation is to replace the water closet, the seat height Finding goes away, and a wall-hung model may also fix a compartment that is too shallow, since it needs 56" instead of 59". So each library Recommendation lists the Items it covers and how: <b>resolves</b> (the other Finding is closed, possibly only when a measured value allows it), <b>condition</b> (a requirement the new work must meet, like seat height 17" to 19"), or <b>re-check</b> (something to verify after the work, like the dispenser distance). When the RAS picks one, the covered Findings are marked and linked to it, and the report shows one combined Recommendation with its conditions. The RAS can override any link. In the data model this is a <b>Recommendation covers Item</b> table (library level) and a <b>Finding covered by Recommendation</b> link (project level).</p>
+  <h3>Working without reception</h3>
+  <p>The app works offline first. Everything the inspector needs on site runs on the phone or tablet with no signal: the checklist tree, the TAS text and required values (a few megabytes), the pass and fail rules, the Recommendation templates, the scanning, and a small model that recognises grab bars and dispensers. The large AI only writes the long formal Findings and turns custom notes into Recommendations. That work waits in a queue and runs when the device reaches reception, or back at the office. Small on-device language models can draft text too, but the final wording is better left to the larger model with the RAS reviewing it. A separate pocket drive isn't needed, and Bluetooth would be too slow to move scans and photos anyway.</p>
+  <h3>Recommendations as templates</h3>
+  <p>Ken's Recommendations are standard wording with blanks for the details. In the library, each one is a template such as "Relocate the side-wall grab bar so the top of the gripping surface is {33–36}" AFF (now {measured}")." The app fills in the blanks from the measurement and the Item. A deferred choice stays open on the review screen until someone picks one, and the report can't be finished until every deferred item is settled.</p>
+  <h3>What it would take</h3>
+  <ul>
+    <li>A Category, element and type tree with the checks for each type, built from the TAS. Chapter 6 alone covers toilet rooms, and Ken's experience sets the order of checks.</li>
+    <li>An iPhone or iPad app (LiDAR models only) for scanning. Measuring a grab bar or dispenser automatically needs a detection model trained on labelled stall scans, which is the costly part.</li>
+    <li>A cheaper first step: the guided checklist with manual and Bluetooth laser entry, plus photos. The same checks, Findings and Recommendation templates work there, and scanning slots in later.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Data model</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Table</th><th>Key fields</th><th>Links to</th></tr></thead>
+    <tbody>
+      <tr><td><b>Project</b></td><td>owner, address, TABS registration no., type (plan review or inspection), RAS, dates</td><td>Sites</td></tr>
+      <tr><td><b>Site → Facility → Level → Location</b></td><td>Site name; facility code from the site map; level; location code (prefix + serial, e.g. DF03, unique per site, used in short text and photo stamps), name, description (e.g. "hallway, across from toilet rooms", used in reports), parent location (SK03 is in TR01), source (preloaded from the map, or named in the field), custom flag, map pin</td><td>Project; preloaded or added during the inspection</td></tr>
+      <tr><td><b>Category</b> (library)</td><td>name, sort order, location-code prefixes</td><td>Items</td></tr>
+      <tr><td><b>Item</b> (library)</td><td>name, default TAS sections, required value (parameter, min, max, unit), long Finding template, short and long Recommendation templates, typical priority and cost</td><td>Category, Standard Section</td></tr>
+      <tr><td><b>Finding</b></td><td>short text, long formal text, measured values, notes, status, AI suggestion and who confirmed it</td><td>Location, Item</td></tr>
+      <tr><td><b>Finding ↔ TAS Section</b></td><td>one row per reference: section number, role (scoping, technical, exception, definition, technical memo), added by (Item, AI or RAS), confirmed by. One or many per Finding.</td><td>Finding, Standard Section</td></tr>
+      <tr><td><b>Photo</b></td><td>file, caption, markup, order. No limit per Finding.</td><td>Finding</td></tr>
+      <tr><td><b>Recommendation</b></td><td>short text, long formal text, priority, cost, responsible party, due date, closed date, after-photos</td><td>Finding</td></tr>
+      <tr><td><b>Recommendation covers</b> (library)</td><td>library Recommendation, covered Item, how (resolves, condition, re-check), test (e.g. depth ≥ 56"), wording</td><td>Recommendation library, Item</td></tr>
+      <tr><td><b>Standard Section</b></td><td>code (TAS 2012, ADA 2010, CBC 11B), number, title, text, exceptions, advisory, figure files, memoranda</td><td>parent section</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:12px">Ken's existing Access database is the best starting point. Its tables, his reusable fixes and his past findings can be imported straight into this model, which saves years of content work. The new version would use a normal SQL database that can still import from and export to Access or Zoho.</p>
+</section>
+
+<section>
+  <h2>Separate modules, one shared core</h2>
+  <p>The work splits into apps that can be built and sold separately but share one database: the Project, its Locations, Findings, the TAS library and the Recommendation library.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Module</th><th>Phase of the project</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><b>Plan Review</b></td><td>Before construction</td><td>Reads the drawings and records Findings against plan sheets instead of rooms, so problems are fixed before they are built. Those Findings become items to verify at the inspection.</td></tr>
+      <tr><td><b>Field Inspection</b></td><td>After construction</td><td>The guided checklist, scanning, tape and laser readings, and stamped photos.</td></tr>
+      <tr><td><b>Report Writer</b></td><td>After the inspection</td><td>Long Findings, Recommendations and the inspection report. This is the first module to build.</td></tr>
+      <tr><td><b>RAS Compliance Manager</b></td><td>Whole project</td><td>Turns each project event (registration, plan review, construction complete, inspection, letter sent) into dated tasks using the TDLR rules, such as the 270 days an owner has to correct items. It puts the tasks on the calendar for the RAS or support staff, and generates the letters in the prescribed wording with the project's details filled in.</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:12px">The Compliance Manager is mostly rules and dates, not AI. Each rule says which event starts a clock, how many days it runs, who acts, and which document goes out. Once the rules are entered, every new date updates the plan automatically.</p>
+</section>
+
+<section>
+  <h2>Suggested order of work</h2>
+  <div>
+    <div class="phase"><div class="when">Week 1</div><div><b>Load the TAS and Ken's Access database</b>Import all ten chapters and the memoranda into structured files. Match the model to the structure of Ken's Access database (table and field names only). Test with a handful of made-up or anonymized findings: run them through Claude and have Ken score the citations.</div></div>
+    <div class="phase"><div class="when">Weeks 2–4</div><div><b>Report draft from recorded findings</b>Set up the tables above and a Category and Item library seeded from the TAS. Feed in one finished inspection's findings and produce a draft report and transmittal letter in Ken's format for him to mark up.</div></div>
+    <div class="phase"><div class="when">Month 2</div><div><b>Review screen and polish</b>One screen where the RAS accepts or edits each cited item, then exports the final report. Learn from his edits.</div></div>
+    <div class="phase"><div class="when">Month 3</div><div><b>Guided field checklist</b>Room, element and type prompts with the TAS checks for each, manual and Bluetooth laser entry, Recommendation templates with a defer option.</div></div>
+    <div class="phase"><div class="when">Later</div><div><b>Scanning, paperwork, drawings, video</b>LiDAR scanning with measurements on the image, TAS paperwork and deadline tracking, plan review of PDF sets, then live video.</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Risks</h2>
+  <ul>
+    <li><b>Liability.</b> The RAS signs the report. The AI only drafts, and every item has a named person who confirmed it.</li>
+    <li><b>Measuring from photos is unreliable.</b> Photos identify the element; the tape decides compliance.</li>
+    <li><b>Wrong citations.</b> Checked against the library before display, and tracked in the Week 1 score.</li>
+    <li><b>TAS versus ADA.</b> They are close but not identical. Keep the code on every section so the AI never mixes them.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>What would help next</h2>
+  <ul>
+    <li>The structure of Ken's Access database: table and field names, or a screenshot of its Relationships view. No client data is needed. If Ken wants his data in later, the import can run on his own computer so nothing leaves his office.</li>
+    <li>An export of the OUSD Zoho Creator app: field list and some sample records.</li>
+    <li>Two or three of Ken's TAS reports, with client names removed, plus any fix and cost list he reuses.</li>
+  </ul>
+</section>
+
+<section class="src">
+  <h2 style="font-size:20px">Sources</h2>
+  <ul>
+    <li><a href="https://www.tdlr.texas.gov/ab/abtas.htm">TDLR, 2012 TAS online</a> · <a href="https://www.tdlr.texas.gov/ab/2012abtas6.htm">Chapter 6 page</a> · <a href="https://www.tdlr.texas.gov/ab/techmemos.htm">Technical Memoranda</a> · <a href="https://www.tdlr.texas.gov/ab/abtasapp.htm">abtasapp page</a></li>
+    <li><a href="https://license.state.tx.us/ab/forms/RAS-Bulletin-2023-05-prescribed-rule-paragraphs.pdf">RAS Bulletin 2023-05, prescribed paragraphs</a> · <a href="https://www.law.cornell.edu/regulations/texas/16-Tex-Admin-Code-SS-68-52">16 TAC 68.52</a></li>
+    <li><a href="https://acikerisim.ohu.edu.tr/items/d3d4a920-e7f5-42bf-88a4-5953b585f7a3/full">iPad Pro LiDAR vs. terrestrial scanner</a> · <a href="https://avesis.erciyes.edu.tr/yayin/a99156bd-ffe3-4421-af12-b3fd8af6118e/investigation-of-geometric-object-and-indoor-mapping-capacity-of-apple-iphone-12-pro-lidar">iPhone 12 Pro LiDAR indoor mapping</a> · <a href="https://www.esri.com/about/newsroom/arcnews/startup-partner-improves-sidewalk-accessibility-with-iphone-lidar-and-arcgis">DeepWalk sidewalk scanning</a> · <a href="https://digitalstrada.com/solutions/ada-compliance">Digital Strada 3D ADA audits</a></li>
+    <li><a href="https://codecomply.ai/ai-compliance-design/">CodeComply.ai</a> · <a href="https://www.archistar.ai/aiprecheck/">Archistar AI PreCheck</a> · <a href="https://trxl.co/123">UpCodes interview on AI and the building code</a></li>
+    <li><a href="https://www.corada.com/documents/eta-barrier-mgmt-sys/whole-document">Evan Terry Associates, Barrier Management Systems</a> · <a href="https://caspinspectors.com/blogs/casp-report-contents-guide/">What a CASp report includes</a> · <a href="https://apps.apple.com/us/app/-/id6755641600">Code Snap: AI ADA Guide</a></li>
+  </ul>
+</section>
+</div>
