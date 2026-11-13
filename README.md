@@ -7,6 +7,7 @@ Tools to help a Texas Registered Accessibility Specialist (RAS) apply the 2012 T
 | File | What it is |
 | --- | --- |
 | `tas-ai-research.html` | Research and proposed design (TAS Findings Engine): data model, architecture, order of work |
+| `field/` | Field Inspection app for phones (installable, works offline): the stall prototype with real camera photos, stamped and kept on the phone, unlimited per check. Live at https://every-place.github.io/tas-ai/field/ once GitHub Pages is on |
 | `field-prototype.html` | Guided Stall Inspection prototype: room > element > type, simulated scan, checklist, Findings and Recommendations |
 | `compliance-manager/ras-deadlines.html` | RAS Compliance Calendar: 16 TAC Ch. 68 deadline rules, date calculator, letter paragraphs |
 | `compliance-manager/ken-ras149-tabs-projects-2026-10-29.csv` | Public TDLR TABS project list for RAS #149, pulled 2026-10-29 |
