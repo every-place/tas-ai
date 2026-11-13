@@ -117,7 +117,7 @@ textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8p
 <body>
 <div class="page">
   <section class="intro">
-    <div class="eyebrow">Prototype · example data · simulated scan · real photos</div>
+    <div class="eyebrow">Prototype · AI scan from video or photos · real photos</div>
     <h1>Guided inspection of a toilet stall</h1>
     <p>This shows how the app could lead an inspector from the room to a finished Finding. The inspector picks the room, the element and its type, and the app lists what TAS requires. The inspector scans the stall, the measurements appear on the image, and the app flags each check.</p>
     <p>Example: a renovated cafe, too small for a pre-visit. The inspector names locations on the spot, and the app suggests the next free code, such as TC01 for the first stall or TR02 for a second restroom. A custom code can be typed instead.</p>
@@ -125,8 +125,9 @@ textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8p
     <p>A measurement too close to its limit for the scan to be sure is marked <span class="pill check">Check with tape</span>. When the inspector enters the tape or laser reading, the app takes a photo stamped with the location, the reading, the requirement and the TAS section. Failures become Findings. Each one offers Recommendation options from the library, a custom Recommendation with notes, or a choice to defer.</p>
     <p>One Recommendation can settle others. Choose "replace with a wall-hung water closet" for the low seat, and the depth Finding is marked covered, because a wall-hung model needs only 56". The dispenser Finding is flagged for a re-check after installation. The report then gets one combined Recommendation that lists what the new fixture must meet. The RAS can still handle any covered Finding separately.</p>
     <div class="legend"><span class="pill pass">Pass</span><span class="pill fail">Fail</span><span class="pill check">Check with tape</span><span class="pill check">Answer</span><span class="pill na">N/A</span></div>
+    <p>The scan is real when you open the app from its claude.ai link. Record a short video sweep of the stall, or take a few photos. Claude pulls frames from the video, finds the water closet, grab bars, dispenser and door, and the app builds the checklist from what was found. Required parts that are missing become questions. Claude also estimates measurements where a scale card is in view, but those estimates are rough, so most checks still ask for a tape reading.</p>
     <p>Photos are real. Each check has a Take photo button that opens the camera, and a From library button for photos already taken. Every photo is stamped with the site, location, reading, requirement, TAS section and time. There is no limit per check. Photos stay on this phone, even if the app is closed, until you tap Start over. Tap a photo to view it full size, save it to Photos or delete it.</p>
-    <p class="note">The scan is simulated, the measurements are invented, and the Recommendation wording is placeholder text until Ken's library replaces it. The TAS section numbers and required values are taken from the 2012 TAS, chapter 6.</p>
+    <p class="note">The example scan (used outside claude.ai) has invented measurements, and the Recommendation wording is placeholder text until Ken's library replaces it. The TAS section numbers and required values are taken from the 2012 TAS, chapter 6.</p>
   </section>
 
   <section class="app" aria-label="Inspection app">
@@ -144,7 +145,7 @@ textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8p
 
 <script>
 const UNC = 0.6; // assumed scan uncertainty in inches (about 1.5 cm)
-const S = { facility:'Main building', level:'Level 1', newRoomCode:'', newRoomWhere:'', real:{}, keep:{}, step:0, room:null, element:null, type:null, parent:'TR01', newRoom:'', code:null, desc:'Accessible stall', where:'Far end of the restroom, past the lavatory', scanned:false, tape:{}, na:{}, photo:{}, pick:{}, notes:{} };
+const S = { facility:'Main building', level:'Level 1', newRoomCode:'', newRoomWhere:'', real:{}, keep:{}, step:0, room:null, element:null, type:null, parent:'TR01', newRoom:'', code:null, desc:'Accessible stall', where:'Far end of the restroom, past the lavatory', scanned:false, tape:{}, na:{}, photo:{}, pick:{}, notes:{}, ai:null, scanPh:[] };
 const SITE_NAME = 'Main Street Cafe';
 // locations already named at this site (small job, no pre-visit: named as the inspector goes)
 const SITE = [
@@ -187,22 +188,37 @@ const TYPES = [
 // measured values are example data for a simulated scan
 // kind: 'scan' = measured by scan, 'manual' = too small to scan, 'yn' = a yes/no the scan cannot see
 const CHECKS = [
-  {id:'w',  what:'Compartment width', min:60, max:null, m:61.2, refs:['604.8.1.1']},
-  {id:'d',  what:'Compartment depth (floor-mounted WC)', min:59, max:null, m:58.7, refs:['604.8.1.1']},
-  {id:'cl', what:'Water closet centerline from side wall', min:16, max:18, m:17.1, refs:['604.2']},
-  {id:'sh', what:'Seat height', min:17, max:19, m:16.2, refs:['604.4']},
-  {id:'gh', what:'Side grab bar height', min:33, max:36, m:38.1, refs:['604.5','609.4']},
-  {id:'gl', what:'Side grab bar length', min:42, max:null, m:42.3, refs:['604.5.1']},
-  {id:'gr', what:'Side grab bar from rear wall', min:null, max:12, m:9.5, refs:['604.5.1']},
-  {id:'rl', what:'Rear grab bar length', min:36, max:null, m:37.0, refs:['604.5.2']},
-  {id:'dp', what:'Dispenser in front of water closet', min:7, max:9, m:11.5, refs:['604.7']},
-  {id:'do', what:'Dispenser outlet height', min:15, max:48, m:22.0, refs:['604.7']},
-  {id:'gd', what:'Grab bar diameter', min:1.25, max:2, m:null, refs:['609.2'], kind:'manual'},
-  {id:'sc', what:'Compartment door is self-closing', refs:['604.8.1.2'], kind:'yn'},
-  {id:'pu', what:'Door pulls on both sides near the latch', refs:['604.8.1.2'], kind:'yn'},
+  {id:'w',  what:'Compartment width', min:60, max:null, m:61.2, refs:['604.8.1.1'], el:'compartment'},
+  {id:'d',  what:'Compartment depth (floor-mounted WC)', min:59, max:null, m:58.7, refs:['604.8.1.1'], el:'compartment'},
+  {id:'cl', what:'Water closet centerline from side wall', min:16, max:18, m:17.1, refs:['604.2'], el:'wc'},
+  {id:'sh', what:'Seat height', min:17, max:19, m:16.2, refs:['604.4'], el:'wc'},
+  {id:'gh', what:'Side grab bar height', min:33, max:36, m:38.1, refs:['604.5','609.4'], el:'side_grab'},
+  {id:'gl', what:'Side grab bar length', min:42, max:null, m:42.3, refs:['604.5.1'], el:'side_grab'},
+  {id:'gr', what:'Side grab bar from rear wall', min:null, max:12, m:9.5, refs:['604.5.1'], el:'side_grab'},
+  {id:'rl', what:'Rear grab bar length', min:36, max:null, m:37.0, refs:['604.5.2'], el:'rear_grab'},
+  {id:'dp', what:'Dispenser in front of water closet', min:7, max:9, m:11.5, refs:['604.7'], el:'dispenser'},
+  {id:'do', what:'Dispenser outlet height', min:15, max:48, m:22.0, refs:['604.7'], el:'dispenser'},
+  {id:'gd', what:'Grab bar diameter', min:1.25, max:2, m:null, refs:['609.2'], kind:'manual', el:'side_grab'},
+  {id:'sc', what:'Compartment door is self-closing', refs:['604.8.1.2'], kind:'yn', el:'door'},
+  {id:'pu', what:'Door pulls on both sides near the latch', refs:['604.8.1.2'], kind:'yn', el:'door'},
 ];
 
+// parts the AI scan looks for. Required parts that are not seen become yes/no checks.
+const PARTS = [
+  {k:'wc', name:'Water closet', req:true, sec:'604'},
+  {k:'side_grab', name:'Side-wall grab bar', req:true, sec:'604.5.1'},
+  {k:'rear_grab', name:'Rear-wall grab bar', req:true, sec:'604.5.2'},
+  {k:'dispenser', name:'Toilet paper dispenser', req:false, sec:'604.7'},
+  {k:'door', name:'Compartment door', req:false, sec:'604.8.1.2'},
+  {k:'scale_card', name:'12" scale card or tape in view', req:false, sec:''},
+];
 const FIND = {
+  p_wc:{short:'Water closet missing', long:()=>'No water closet was found in the wheelchair accessible compartment. 2012 TAS 604.8.1 requires a water closet complying with 604.',
+      recs:['Install a water closet with the top of seat {17–19}" AFF and the centerline {16–18}" from the side wall.']},
+  p_side_grab:{short:'Side-wall grab bar missing', long:()=>'There is no side-wall grab bar at the water closet. 2012 TAS 604.5 and 604.5.1 require one, 42" long minimum.',
+      recs:['Install a side-wall grab bar {42}" long minimum, top of gripping surface {33–36}" AFF, {12}" max from the rear wall. Provide blocking as needed.']},
+  p_rear_grab:{short:'Rear-wall grab bar missing', long:()=>'There is no rear-wall grab bar at the water closet. 2012 TAS 604.5 and 604.5.2 require one, 36" long minimum.',
+      recs:['Install a rear-wall grab bar {36}" long minimum, top of gripping surface {33–36}" AFF. Provide blocking as needed.']},
   sh:{short:'Toilet seat too low', long:v=>`The water closet seat in the wheelchair accessible compartment measures ${v}" above the finish floor to the top of the seat. 2012 TAS 604.4 requires 17" to 19".`,
       recs:['Install a seat riser or replace the seat to bring the top of seat to {17–19}" AFF (now {v}").','Replace the water closet with a model whose seat is {17–19}" AFF.', 'WALLHUNG']},
   gh:{short:'Side grab bar mounted too high', long:v=>`The side-wall grab bar is mounted ${v}" above the finish floor to the top of the gripping surface. 2012 TAS 604.5 and 609.4 require 33" to 36".`,
@@ -232,7 +248,16 @@ const LIB = {
       {id:'cl', how:'condition',why:'Keep the centerline 16" to 18" from the side wall (TAS 604.2).'},
     ]},
 };
-const byId = id => CHECKS.find(c=>c.id===id);
+// the checklist: the fixed list for the simulated scan, or built from the parts the AI scan found
+function checks(){
+  if(!S.ai) return CHECKS;
+  const E=S.ai.parts||{};
+  const out=CHECKS.filter(c=>c.el==='compartment'||E[c.el]);
+  PARTS.filter(p=>p.req && !E[p.k]).forEach(p=>out.push({id:'p_'+p.k, what:p.name+' present', refs:[p.sec], kind:'yn', el:p.k, presence:true}));
+  return out;
+}
+const byId = id => checks().find(c=>c.id===id) || CHECKS.find(c=>c.id===id);
+function est(c){ return S.ai && S.ai.est ? S.ai.est[c.id] : null; }
 function recOf(id){ const f=FIND[id], k=S.pick[id]; if(!f||!k||!k.startsWith('r')) return null; const r=f.recs[+k.slice(1)]; return LIB[r]?r:null; }
 // which chosen library Recommendation (on another Finding) settles this Finding, if any
 function coveredBy(id){
@@ -251,12 +276,18 @@ function rechecks(id){
     LIB[r].covers.filter(x=>x.id===id && x.how==='recheck').forEach(x=>out.push({from:other, why:x.why})); }
   return out;
 }
-function value(c){ return S.tape[c.id]!=null ? S.tape[c.id] : c.m; }
+function value(c){
+  if(S.tape[c.id]!=null) return S.tape[c.id];
+  if(S.ai){ const e=est(c); return e ? e.v : null; }
+  return c.m;
+}
 function status(c){
   if(S.na[c.id]) return 'na';
   if(c.kind==='yn') return S.tape[c.id]==null ? 'answer' : (S.tape[c.id]==='yes' ? 'pass' : 'fail');
   if(c.kind==='manual' && S.tape[c.id]==null) return 'check';
-  const v=value(c), tol = S.tape[c.id]!=null ? 0 : UNC;
+  const v=value(c); if(v==null) return 'check';
+  // photo estimates get a wide margin: only clear passes and clear failures skip the tape
+  const tol = S.tape[c.id]!=null ? 0 : S.ai ? (est(c)&&est(c).conf==='high'?1.5:3) : UNC;
   const lo = c.min==null?-Infinity:c.min, hi = c.max==null?Infinity:c.max;
   if(v < lo - tol || v > hi + tol) return 'fail';
   if(v >= lo + tol && v <= hi - tol) return 'pass';
@@ -285,7 +316,7 @@ function render(){
   if(st==='locate' && !S.code) S.code=nextCode(EL_PREFIX[S.element]||'EL');
   $('back').disabled = S.step===0;
   const nx=$('next');
-  const left=CHECKS.filter(c=>!done(c)).length;
+  const left=checks().filter(c=>!done(c)).length;
   nx.textContent = st==='scan' ? (S.scanned?'See checklist':'Scan first') : st==='results' ? (left?`${left} checks left`:'Make Findings') : st==='findings' ? 'Save to report' : 'Next';
   nx.disabled = (st==='room'&&!S.room)||(st==='element'&&!S.element)||(st==='type'&&!S.type)||(st==='locate'&&!codeOk())||(st==='scan'&&!S.scanned)||(st==='results'&&left>0)||(st==='findings');
   if(st==='room') pick(b,'What are you inspecting?','Main Street Cafe, a renovated cafe. Small job with no pre-visit, so locations get named as you go.',ROOMS.map(r=>({t:r[0],s:r[1],sec:r[2]})),'room');
@@ -354,27 +385,153 @@ function pick(b,title,hint,items,key){
   });
 }
 
+// ---- Scan: real photos or a video sweep, read by Claude (when opened from claude.ai), else simulated ----
+let SAMPLE=null, MAXIMG=0, scanCtl=null;
+const esc = t => String(t==null?'':t).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 function scan(b){
+  const ai = !!SAMPLE && MAXIMG>0;
+  const have = S.scanPh.filter(id=>URLS[id]);
   b.insertAdjacentHTML('beforeend',`<h2>Scan the stall</h2>
-  <p class="hint">Wheelchair accessible compartment, 2012 TAS 604.8.1. The scan finds the parts of the stall and builds the checklist from them.</p>
+  <p class="hint">Wheelchair accessible compartment, 2012 TAS 604.8.1. ${ai?'Claude looks at your video or photos, finds the parts of the stall and builds the checklist from them.':'The scan finds the parts of the stall and builds the checklist from them.'}</p>
   <div class="scanbox">
     <b>How to scan</b>
     <ol>
-      <li>Put the 12" scale card on the side wall, below the grab bar.</li>
-      <li>From the door, sweep slowly across the rear wall, the side wall and the floor.</li>
-      <li>Step in and capture the grab bars, the seat and the dispenser close up.</li>
+      <li>Put the 12" scale card (or an open tape) on the side wall, below the grab bar. It gives Claude a size reference.</li>
+      <li>From the door, record a slow 15 to 30 second video across the rear wall, the side wall and the floor. Or take 3 to 6 photos.</li>
+      <li>Step in and get the grab bars, the seat and the dispenser close up.</li>
     </ol>
   </div>
-  <button class="btn" type="button" id="doScan">${S.scanned?'Scan complete. Rescan':'Start scan (simulated)'}</button>
-  ${S.scanned?`<div><b>Found in the scan</b><div class="found">${['Water closet','Side wall','Rear wall','Side grab bar','Rear grab bar','Dispenser','Compartment door','Front partition'].map(x=>`<span class="pill pass">${x}</span>`).join('')}</div>
+  ${ai?`<div class="camrow" id="scanBtns"></div>
+  ${have.length?`<div class="photos">${have.map((id,k)=>`<div class="photo" style="width:96px"><button type="button" class="open" data-photo="${id}" aria-label="Open scan frame ${k+1}"><img src="${URLS[id]}" alt="" style="display:block;width:100%;aspect-ratio:3/4;object-fit:cover"></button><span class="n">${k+1}</span></div>`).join('')}</div>
+  <p class="note">${have.length} of ${MAXIMG} frames will be sent. ${have.length>=MAXIMG?'That is the most one scan can send.':''}</p>`:''}
+  <div class="camrow"><button class="btn primary" type="button" id="analyze" style="flex:1" ${have.length&&!S.busy?'':'disabled'}>${S.busy?'Reading the photos…':S.ai?'Read again':'Find the parts'}</button>${S.busy?'<button class="btn" type="button" id="stopScan">Stop</button>':''}${have.length&&!S.busy?'<button class="btn" type="button" id="clearScan">Clear</button>':''}</div>
+  <p class="note" id="scanStatus">${S.busy?'This usually takes 20 to 60 seconds. The first time, claude.ai asks you to allow the page to use Claude.':esc(S.aiErr||'')}</p>
+  ${S.ai?aiResult():''}
+  <p class="note">${S.ai?'':'No signal? '}<button type="button" class="mini" id="useSim">Use the example scan instead</button></p>`
+  :`<button class="btn" type="button" id="doScan">${S.scanned?'Scan complete. Rescan':'Start scan (simulated)'}</button>
+  <p class="note">The real scan uses Claude to read your video or photos. It works when you open this app from its claude.ai link while signed in.</p>`}
+  ${S.scanned&&!S.ai?`<div><b>Found in the scan (example)</b><div class="found">${['Water closet','Side wall','Rear wall','Side grab bar','Rear grab bar','Dispenser','Compartment door','Front partition'].map(x=>`<span class="pill pass">${x}</span>`).join('')}</div>
   <p class="note">${CHECKS.length} TAS checks apply: ${CHECKS.filter(c=>!c.kind).length} measured by the scan, ${CHECKS.filter(c=>c.kind==='manual').length} by hand, ${CHECKS.filter(c=>c.kind==='yn').length} yes or no questions.</p></div>`:''}
-  <p class="note">Photos are real: Take photo opens your phone's camera (or a file picker on a computer) and stamps the reading onto the image. A real app would use the LiDAR sensor on an iPhone Pro or iPad Pro. Published tests put those sensors at about ±1 to 1.5 cm (±0.4" to 0.6") for room-scale measurements, and less accurate on small parts.</p>`);
-  $('doScan').onclick=()=>{ S.scanned=true; render(); };
+  <p class="note">Measurements from video or photos are rough, so most of them ask for a tape reading. A finished app would use the LiDAR sensor on an iPhone Pro or iPad Pro, at about ±0.4" to 0.6".</p>`);
+  if(!ai){ $('doScan').onclick=()=>{ S.ai=null; S.scanned=true; render(); }; return; }
+  const row=$('scanBtns');
+  row.innerHTML=`<input class="sr" type="file" accept="video/*" capture="environment" id="scanVid" tabindex="-1"><label for="scanVid" class="mini cam" role="button">🎥 Record video</label>
+    <input class="sr" type="file" accept="image/*" capture="environment" id="scanCam" tabindex="-1"><label for="scanCam" class="mini cam" role="button">📷 Take photo</label>
+    <input class="sr" type="file" accept="image/*,video/*" multiple id="scanLib" tabindex="-1"><label for="scanLib" class="mini" role="button">From library</label>`;
+  row.querySelectorAll('input').forEach(inp=>inp.onchange=e=>{ const fs=[...(e.target.files||[])]; e.target.value=''; addScanFiles(fs); });
+  $('analyze').onclick=analyze;
+  if($('stopScan')) $('stopScan').onclick=()=>scanCtl&&scanCtl.abort();
+  if($('clearScan')) $('clearScan').onclick=async()=>{ for(const id of S.scanPh) await dropPhoto(id); S.scanPh=[]; S.ai=null; S.scanned=false; S.aiErr=''; render(); };
+  $('useSim').onclick=()=>{ S.ai=null; S.scanned=true; render(); };
+  b.querySelectorAll('[data-addpart]').forEach(x=>x.onclick=()=>{ S.ai.parts[x.dataset.addpart]=true; render(); });
+}
+function aiResult(){
+  const A=S.ai, n=checks().length;
+  const pills=PARTS.map(p=> A.parts[p.k] ? `<span class="pill pass">${p.name}</span>`
+    : p.req ? `<span class="pill fail">${p.name}: not seen</span>`
+    : p.k==='scale_card' ? `<span class="pill na">${p.name}: not seen</span>`
+    : `<span class="pill na">${p.name}: not seen <button type="button" class="mini" data-addpart="${p.k}" style="padding:0 6px;margin-left:4px">Add checks</button></span>`).join('');
+  const nEst=Object.keys(A.est).length;
+  return `<div><b>Found by Claude</b><div class="found">${pills}${A.other.map(x=>`<span class="pill na" style="white-space:normal">${esc(x)}</span>`).join('')}</div></div>
+  <p class="note">${n} TAS checks apply to what was found. Claude estimated ${nEst} measurement${nEst===1?'':'s'} from the frames${A.parts.scale_card?' using the scale reference':', with no scale card in view, so expect wide margins'}. Required parts it did not see are added as questions for you to confirm.</p>
+  ${A.concerns.length?`<div class="opt" style="cursor:default;border-color:var(--check);background:var(--check-soft)"><span><b>Also noticed, check these yourself:</b> ${A.concerns.map(esc).join(' · ')}</span></div>`:''}
+  ${A.tip?`<p class="note"><b>Tip:</b> ${esc(A.tip)}</p>`:''}`;
+}
+// downscale a photo for storage and for sending
+function shrink(srcEl, w0, h0, max){
+  const W=Math.min(max,w0), H=Math.round(h0*W/w0);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.getContext('2d').drawImage(srcEl,0,0,W,H);
+  return new Promise(res=>cv.toBlob(res,'image/jpeg',.85));
+}
+function loadImg(file){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(file), img=new Image(); img.onload=()=>{ URL.revokeObjectURL(url); res(img); }; img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('img')); }; img.src=url; }); }
+// pull evenly spaced still frames out of a video (iPhone .mov works in Safari)
+async function videoFrames(file, n){
+  const url=URL.createObjectURL(file), v=document.createElement('video');
+  v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.src=url;
+  try{
+    await new Promise((res,rej)=>{ v.onloadeddata=res; v.onerror=()=>rej(new Error('video')); setTimeout(()=>rej(new Error('video timeout')),15000); v.load(); });
+    const d=v.duration; if(!isFinite(d)||d<=0) throw new Error('no duration');
+    const out=[];
+    for(let i=0;i<n;i++){
+      await new Promise(res=>{ const done=()=>{ v.removeEventListener('seeked',done); clearTimeout(t); res(); }; const t=setTimeout(done,5000); v.addEventListener('seeked',done); v.currentTime=Math.min(d-0.05, d*(i+0.5)/n); });
+      const blob=await shrink(v, v.videoWidth, v.videoHeight, 1280); if(blob) out.push({blob, t:v.currentTime});
+    }
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function storeBlob(blob, meta){
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  keepBlob(id, blob, meta);
+  try{ await dbDo('readwrite', st=>st.put({id, blob, ...meta})); }catch(e){}
+  return id;
+}
+async function dropPhoto(id){
+  try{ await dbDo('readwrite', st=>st.delete(id)); }catch(e){}
+  if(URLS[id]) URL.revokeObjectURL(URLS[id]); delete URLS[id]; delete BLOBS[id]; delete PH[id];
+}
+async function addScanFiles(files){
+  if(!files.length) return;
+  const st=$('scanStatus'); if(st) st.textContent='Preparing frames…';
+  for(const f of files){
+    let room=MAXIMG-S.scanPh.length; if(room<=0) break;
+    try{
+      if(f.type.startsWith('video/')){
+        const frames=await videoFrames(f, Math.min(room, 6));
+        for(const fr of frames) S.scanPh.push(await storeBlob(fr.blob,{check:'_scan', loc:LOC(), n:S.scanPh.length+1, taken:'video '+fr.t.toFixed(1)+'s'}));
+      } else {
+        const img=await loadImg(f); const blob=await shrink(img, img.naturalWidth, img.naturalHeight, 1600);
+        S.scanPh.push(await storeBlob(blob,{check:'_scan', loc:LOC(), n:S.scanPh.length+1, taken:new Date().toLocaleString()}));
+      }
+    }catch(e){ S.aiErr = f.type.startsWith('video/') ? 'That video could not be read. Try a shorter one, or take photos instead.' : 'That file could not be read as a photo.'; }
+  }
+  save(); render();
+}
+function scanPrompt(n){
+  const list=CHECKS.filter(c=>!c.kind||c.kind==='manual').map(c=>`- ${c.id}: ${c.what} (required ${req(c)}, TAS ${c.refs.join(', ')})`).join('\n');
+  return `You are helping a Texas Registered Accessibility Specialist inspect one wheelchair accessible toilet compartment (2012 Texas Accessibility Standards 604.8.1). The ${n} images are frames from a phone video or photos of this one stall, location ${LOC()}.
+
+1. Say which of these parts appear in any image: wc (water closet), side_grab (side-wall grab bar), rear_grab (rear-wall grab bar), dispenser (toilet paper dispenser), door (compartment door), scale_card (a 12 inch scale card, ruler or tape measure in view).
+
+2. Estimate these measurements in inches, ONLY when an image gives a real size reference: the scale card or a tape in view, standard 12 or 24 inch tiles, a 1 1/2 inch grab bar diameter, an 80 inch door height, a 15 inch toilet seat height range for standard bowls is NOT a reference. If you cannot estimate one, leave it out. Confidence is "high" only when a scale reference sits right next to the thing measured.
+${list}
+
+3. Note up to 5 other things that may matter for accessibility that a RAS should check (for example items in the clear floor space, a sanitary napkin disposal or shelf under the grab bar, the flush control on the closed side, the door swinging into the required space, a coat hook too high). Describe what you see, not a verdict.
+
+Reply with only this JSON:
+{"parts":{"wc":true,"side_grab":true,"rear_grab":false,"dispenser":true,"door":true,"scale_card":false},
+ "estimates":[{"id":"sh","inches":16.5,"confidence":"low","basis":"seat top about 1.4 tile heights above the floor"}],
+ "other_parts":["sanitary napkin disposal"],
+ "concerns":["disposal bin may sit under the side grab bar"],
+ "tip":"one short sentence on what extra photo would help most, or an empty string"}`;
+}
+function normalizeAI(r){
+  const A={parts:{}, est:{}, other:[], concerns:[], tip:''};
+  const P=(r&&r.parts)||{}; PARTS.forEach(p=>A.parts[p.k]=P[p.k]===true);
+  const ids=new Set(CHECKS.map(c=>c.id));
+  ((r&&r.estimates)||[]).forEach(e=>{ const v=Number(e&&e.inches); if(e && ids.has(e.id) && isFinite(v) && v>0 && v<150)
+    A.est[e.id]={v:Math.round(v*4)/4, conf:['low','medium','high'].includes(e.confidence)?e.confidence:'low', basis:String(e.basis||'').slice(0,160)}; });
+  A.other=((r&&r.other_parts)||[]).slice(0,6).map(x=>String(x).slice(0,60));
+  A.concerns=((r&&r.concerns)||[]).slice(0,5).map(x=>String(x).slice(0,200));
+  A.tip=String((r&&r.tip)||'').slice(0,200);
+  return A;
+}
+const AI_ERR={not_granted:'Claude was not allowed for this page. Use the example scan instead.', sampling_disabled:'Claude is not available on this account.', rate_limited:'Too many requests just now. Wait a minute and try again.', session_expired:'Sign in to claude.ai again, then try again.', image_rejected:'One of the frames was rejected. Clear and try other photos.', refused:'Claude would not read these images. Try other photos.', invalid_json:'The answer came back garbled. Tap Read again.', images_unavailable:'This view cannot send images to Claude.'};
+async function analyze(){
+  const blobs=S.scanPh.map(id=>BLOBS[id]).filter(Boolean).slice(0,MAXIMG);
+  if(!blobs.length||S.busy) return;
+  S.busy=true; S.aiErr=''; scanCtl=new AbortController(); render();
+  try{
+    const r=await SAMPLE.json(scanPrompt(blobs.length), {images:blobs, signal:scanCtl.signal, cache:false});
+    S.ai=normalizeAI(r); S.scanned=true;
+  }catch(e){
+    if(e && e.code!=='cancelled') S.aiErr = AI_ERR[e.code] || 'Claude could not read the photos this time. Tap the button to try again.';
+  }
+  S.busy=false; render();
 }
 
 function svg(){
   const X=i=>30+i*4, Y=i=>270-i*4, col=id=>`var(--${cls[status(byId(id))]})`;
-  const gh=value(byId('gh')), sh=value(byId('sh'));
+  const gh=value(byId('gh'))||34, sh=value(byId('sh'))||17;
   return `<svg viewBox="0 0 360 290" width="100%" role="img" aria-label="Side wall elevation with measured dimensions">
   <rect x="30" y="20" width="320" height="250" fill="var(--surface)" stroke="var(--line)"/>
   <line x1="10" y1="270" x2="350" y2="270" stroke="var(--fg)" stroke-width="2"/>
@@ -399,7 +556,7 @@ function svg(){
 
 // stylised evidence photo with the reading stamped on it
 function stampLines(c, src, when){
-  const v = c.kind==='yn' ? (S.tape[c.id]==='yes'?'Yes':'No') : (value(c)==null?'—':value(c)+'"');
+  const v = c.kind==='yn' ? (S.tape[c.id]==='yes'?'Yes':(S.tape[c.id]==='no'?'No':'—')) : (value(c)==null?'—':value(c)+'"');
   return [`${LOC()} · ${S.desc} · ${c.what}`, `Reading ${v} by ${src} · required ${req(c)}`, `TAS ${c.refs.join(', ')} · ${when}`];
 }
 // ---- Real photos: stamped, stored on the phone (IndexedDB), unlimited per check ----
@@ -436,7 +593,7 @@ function addPhoto(c, file){
       const g=cv.getContext('2d'); g.drawImage(img,0,0,W,H);
       URL.revokeObjectURL(url);
       const fs=Math.max(14,Math.round(W/45)), pad=Math.round(fs*.6), taken=new Date().toLocaleString();
-      const lines=[SITE_NAME+' · '+S.facility+' · '+S.level, ...stampLines(c, S.tape[c.id]!=null?(S.photo[c.id]||'tape'):'scan', taken)];
+      const lines=[SITE_NAME+' · '+S.facility+' · '+S.level, ...stampLines(c, S.tape[c.id]!=null?(S.photo[c.id]||'tape'):(S.ai?'photo estimate':'scan'), taken)];
       const band=lines.length*fs*1.35+pad*2;
       g.fillStyle='rgba(0,0,0,.68)'; g.fillRect(0,H-band,W,band);
       g.fillStyle='#ffffff'; g.font=`${fs}px ui-monospace, Menlo, Consolas, monospace`; g.textBaseline='top';
@@ -488,6 +645,7 @@ function openViewer(id){
     const del=v.querySelector('.del');
     if(del.dataset.sure!=='1'){ del.dataset.sure='1'; del.textContent='Tap again to delete'; return; }
     for(const k in S.real){ S.real[k]=S.real[k].filter(x=>x!==id); }
+    S.scanPh=(S.scanPh||[]).filter(x=>x!==id);
     try{ await dbDo('readwrite', st=>st.delete(id)); }catch(e){}
     URL.revokeObjectURL(URLS[id]); delete URLS[id]; delete BLOBS[id]; delete PH[id];
     save(); close(); render();
@@ -500,6 +658,11 @@ async function shareFiles(ids){
   try{
     if(navigator.canShare && navigator.canShare({files})){ await navigator.share({files, title:'Inspection photos'}); return; }
   }catch(e){ if(e.name==='AbortError') return; }
+  // inside claude.ai: hand the files to the viewer's save surface (the share sheet on a phone)
+  try{
+    const dl = window.claude && claude.use ? await claude.use('downloads') : null;
+    if(dl){ for(const f of files){ try{ await dl.save({filename:f.name, data:f}); }catch(e){ if(e&&e.code==='unavailable') break; } } return; }
+  }catch(e){}
   // fallback (computers): download each file
   files.forEach(f=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); });
 }
@@ -522,23 +685,25 @@ function stamp(c, src){
 }
 
 function results(b){
-  const sts=CHECKS.map(status), n=k=>sts.filter(s=>s===k).length;
-  const ok=CHECKS.filter(done).length;
+  const CK=checks(), sts=CK.map(status), n=k=>sts.filter(s=>s===k).length;
+  const ok=CK.filter(done).length;
   b.insertAdjacentHTML('beforeend',`<h2>Checklist</h2>
-  <div class="progress"><div class="note"><b>${ok} of ${CHECKS.length}</b> checks done. Findings unlock when every check is done or marked N/A.</div><div class="track"><div class="fillbar" style="width:${ok/CHECKS.length*100}%"></div></div></div>
+  <div class="progress"><div class="note"><b>${ok} of ${CK.length}</b> checks done. Findings unlock when every check is done or marked N/A.</div><div class="track"><div class="fillbar" style="width:${ok/CK.length*100}%"></div></div></div>
   <div class="summary"><span class="pill pass">${n('pass')} pass</span><span class="pill fail">${n('fail')} fail</span><span class="pill check">${n('check')+n('answer')} to do</span>${n('na')?`<span class="pill na">${n('na')} N/A</span>`:''}</div>
-  <div class="svgwrap">${svg()}<div class="cap">Side wall, from the scan. Illustration of what the overlay would show.</div></div>
+  ${S.ai && S.scanPh.some(id=>URLS[id]) ? `<div class="svgwrap"><button type="button" class="open" data-photo="${S.scanPh.find(id=>URLS[id])}" style="all:unset;display:block;cursor:pointer"><img src="${URLS[S.scanPh.find(id=>URLS[id])]}" alt="Scan photo" style="display:block;width:100%;max-height:260px;object-fit:cover"></button><div class="cap">From your scan. ${S.ai.concerns.length?'<b>Also noticed:</b> '+S.ai.concerns.map(esc).join(' · ')+' Check these yourself.':''}</div></div>` : `<div class="svgwrap">${svg()}<div class="cap">Side wall, from the scan. Illustration of what the overlay would show.</div></div>`}
   <div class="checks" id="checks"></div>`);
   const box=$('checks');
-  CHECKS.forEach(c=>{
+  CK.forEach(c=>{
     const s=status(c), v=value(c);
     const row=document.createElement('div'); row.className='row';
-    const shown = c.kind==='yn' ? (S.tape[c.id]?(S.tape[c.id]==='yes'?'Yes':'No'):'—') : (v==null?'—':v+'"');
-    row.innerHTML=`<div><div class="what">${c.what}</div><div class="req">${c.kind==='yn'?'Required':'Required '+req(c)} · ${c.refs.map(r=>'TAS '+r).join(', ')}</div></div>
+    const e=S.tape[c.id]==null?est(c):null;
+    const shown = c.kind==='yn' ? (S.tape[c.id]?(S.tape[c.id]==='yes'?'Yes':'No'):'—') : (v==null?'—':(e?'~':'')+v+'"');
+    row.innerHTML=`<div><div class="what">${c.what}</div><div class="req">${c.kind==='yn'?'Required':'Required '+req(c)} · ${c.refs.map(r=>'TAS '+r).join(', ')}</div>${e?`<div class="req">Photo estimate, ${e.conf} confidence${e.basis?': '+esc(e.basis):''}</div>`:''}${c.presence?'<div class="req" style="color:var(--fail)">Not seen in the scan. Is it there?</div>':''}</div>
       <div class="val">${s==='na'?'':shown}${S.photo[c.id]?` <span class="note">${S.photo[c.id]}</span>`:''}<br><span class="pill ${cls[s]}">${label[s]}</span></div>`;
     const t=document.createElement('div'); t.className='tape';
     if(s==='check'){
-      t.innerHTML=`<label for="tape-${c.id}">${c.kind==='manual'?'Too small to scan. Reading':'Too close to the limit for the scan. Reading'}</label>
+      const why = c.kind==='manual' ? 'Too small to scan. Reading' : S.ai ? (value(c)==null ? 'Could not be measured from the photos. Reading' : 'Photo estimate is too close to call. Reading') : 'Too close to the limit for the scan. Reading';
+      t.innerHTML=`<label for="tape-${c.id}">${why}</label>
         <input id="tape-${c.id}" type="number" step="0.125" inputmode="decimal" placeholder="inches">
         <button type="button" data-a="save">Save + photo</button><button type="button" data-a="laser">Bluetooth laser</button><button type="button" data-a="na" class="mini">N/A</button>`;
       t.querySelector('[data-a=save]').onclick=()=>{ const x=parseFloat(t.querySelector('input').value); if(!isNaN(x)){ S.tape[c.id]=x; S.photo[c.id]='tape'; render(); } };
@@ -563,10 +728,10 @@ function results(b){
 function fill(t,v){ return t.replace('{v}',`<span class="v">${v}</span>`).replace(/\{([^}]+)\}/g,'<span class="v">$1</span>'); }
 
 function findings(b){
-  const fails=CHECKS.filter(c=>status(c)==='fail' && FIND[c.id]);
+  const fails=checks().filter(c=>status(c)==='fail' && FIND[c.id]);
   const covered=fails.filter(c=>coveredBy(c.id));
   b.insertAdjacentHTML('beforeend',`<h2>${fails.length} Findings</h2>
-  <p class="hint">Category: Toilet room · Item: Wheelchair accessible compartment. All ${CHECKS.length} checks are done. Pick a Recommendation for each Finding, write a custom one, or defer the choice to the office. Some Recommendations settle other Findings too.</p>
+  <p class="hint">Category: Toilet room · Item: Wheelchair accessible compartment. All ${checks().length} checks are done. Pick a Recommendation for each Finding, write a custom one, or defer the choice to the office. Some Recommendations settle other Findings too.</p>
   ${covered.length?`<div class="summary"><span class="pill pass">${covered.length} covered by another Recommendation</span></div>`:''}`);
   fails.forEach(c=>{
     const f=FIND[c.id], v=value(c), cov=coveredBy(c.id);
@@ -671,8 +836,17 @@ $('next').onclick=()=>{
 $('reset').onclick=startOver;
 (async()=>{
   restore();
+  S.busy=false;
   await loadPhotos();
+  S.scanPh=(S.scanPh||[]).filter(id=>URLS[id]);
   render();
+  // Claude reads the scan only inside the claude.ai viewer; elsewhere the simulated scan is used
+  try{
+    if(window.claude && claude.use){
+      const sm=await claude.use('sample');
+      if(sm){ const lim=await sm.limits().catch(()=>null); if(lim && lim.images){ SAMPLE=sm; MAXIMG=Math.min(lim.images.maxCount||0, 10); render(); } }
+    }
+  }catch(e){}
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
